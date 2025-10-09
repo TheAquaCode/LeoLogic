@@ -4,6 +4,7 @@ import Header from './components/layout/header';
 import FileExplorer from './components/tabs/FileExplorer';
 import History from './components/tabs/History';
 import AIAssistant from './components/tabs/AIAssistant';
+import FloatingChatbot from './components/ui/FloatingChatbot';
 import UploadScan from './components/tabs/UploadScan';
 import Settings from './components/tabs/Settings';
 import ComingSoon from './components/tabs/ComingSoon';
@@ -55,6 +56,8 @@ const App = () => {
         {/* Content */}
         {renderTabContent()}
       </div>
+      <FloatingChatbot />
+
     </div>
   );
 };

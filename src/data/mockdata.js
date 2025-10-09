@@ -13,7 +13,6 @@ import {
 export const sidebarItems = [
   { name: 'File Explorer', icon: FolderOpen, active: true },
   { name: 'Upload & Scan', icon: Upload, active: false },
-  { name: 'AI Assistant', icon: MessageSquare, active: false },
   { name: 'History', icon: Clock, active: false },
   { name: 'Settings', icon: Settings, active: false }
 ];
