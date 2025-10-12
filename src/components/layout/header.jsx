@@ -43,6 +43,11 @@ const Header = ({ activeTab, actionFilter, setActionFilter, timeFilter, setTimeF
                 type="text"
                 placeholder={activeTab === 'History' ? "Search files, paths, or reasons..." : "Search folders and categories..."}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                style={{
+                  backgroundColor: 'var(--theme-bg-secondary)',
+                  color: 'var(--theme-text-primary)',
+                  borderColor: 'var(--theme-border-primary)'
+                }}
               />
             </div>
             
@@ -52,7 +57,12 @@ const Header = ({ activeTab, actionFilter, setActionFilter, timeFilter, setTimeF
                   <select
                     value={actionFilter}
                     onChange={(e) => setActionFilter(e.target.value)}
-                    className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="appearance-none border rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    style={{
+                      backgroundColor: 'var(--theme-bg-secondary)',
+                      color: 'var(--theme-text-primary)',
+                      borderColor: 'var(--theme-border-primary)'
+                    }}
                   >
                     <option>All Actions</option>
                     <option>Moved</option>
@@ -66,7 +76,12 @@ const Header = ({ activeTab, actionFilter, setActionFilter, timeFilter, setTimeF
                   <select
                     value={timeFilter}
                     onChange={(e) => setTimeFilter(e.target.value)}
-                    className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="appearance-none border rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    style={{
+                      backgroundColor: 'var(--theme-bg-secondary)',
+                      color: 'var(--theme-text-primary)',
+                      borderColor: 'var(--theme-border-primary)'
+                    }}
                   >
                     <option>All Time</option>
                     <option>Today</option>
