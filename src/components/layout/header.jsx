@@ -4,6 +4,8 @@ import { Search, ChevronDown } from 'lucide-react';
 const Header = ({ activeTab, actionFilter, setActionFilter, timeFilter, setTimeFilter }) => {
   const getDescription = () => {
     switch (activeTab) {
+      case 'Dashboard':  // ADD THIS CASE
+        return 'Overview of your file organization system';
       case 'File Explorer':
         return 'Manage watched folders and categories for AI organization';
       case 'Upload & Scan':
@@ -18,7 +20,9 @@ const Header = ({ activeTab, actionFilter, setActionFilter, timeFilter, setTimeF
   };
 
   const getTitle = () => {
-    return activeTab === 'History' ? 'File Movement History' : activeTab;
+    if (activeTab === 'History') return 'File Movement History';
+    if (activeTab === 'Dashboard') return 'Dashboard';  // ADD THIS LINE
+    return activeTab;
   };
 
   return (

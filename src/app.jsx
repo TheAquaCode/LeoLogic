@@ -8,6 +8,7 @@ import FloatingChatbot from './components/ui/FloatingChatbot';
 import UploadScan from './components/tabs/UploadScan';
 import Settings from './components/tabs/Settings';
 import ComingSoon from './components/tabs/ComingSoon';
+import Dashboard from './dashboard'; // ADD THIS LINE - Import the Dashboard component
 import { defaultSettings } from './data/mockdata';
 
 const App = () => {
@@ -19,6 +20,8 @@ const App = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'Dashboard':  // Change to capital D
+        return <Dashboard />;
       case 'File Explorer':
         return <FileExplorer />;
       case 'History':

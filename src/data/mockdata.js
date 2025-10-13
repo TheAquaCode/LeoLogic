@@ -7,14 +7,16 @@ import {
   Folder,
   Monitor,
   Image,
-  Video
+  Video,
+  LayoutDashboard  // ADD THIS
 } from 'lucide-react';
 
 export const sidebarItems = [
-  { name: 'File Explorer', icon: FolderOpen, active: true },
-  { name: 'Upload & Scan', icon: Upload, active: false },
-  { name: 'History', icon: Clock, active: false },
-  { name: 'Settings', icon: Settings, active: false }
+  { name: 'Dashboard', icon: LayoutDashboard },  // Change to capital D and different icon
+  { name: 'File Explorer', icon: FolderOpen },
+  { name: 'Upload & Scan', icon: Upload },
+  { name: 'History', icon: Clock },
+  { name: 'Settings', icon: Settings }
 ];
 
 export const watchedFolders = [
