@@ -12,7 +12,7 @@ import Dashboard from './components/tabs/dashboard'; // ADD THIS LINE - Import t
 import { defaultSettings } from './data/mockdata';
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('File Explorer');
+  const [activeTab, setActiveTab] = useState('Dashboard');
   const [autoOrganize, setAutoOrganize] = useState(true);
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [timeFilter, setTimeFilter] = useState('All Time');
