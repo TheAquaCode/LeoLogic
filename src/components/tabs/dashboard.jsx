@@ -1,5 +1,5 @@
 import React from "react";
-import { File, Calendar, HardDrive, Copy, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
 
 const Dashboard = () => {
   return (
@@ -11,39 +11,14 @@ const Dashboard = () => {
           AI-powered file organization overview
         </p>
 
-        {/* Quick Sort */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 border border-gray-200">
-          <h2 className="text-lg font-medium text-gray-800 mb-4">Quick Sort</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Organize files quickly with AI-powered actions
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { icon: File, label: "By Type", desc: "Sort by file type" },
-              { icon: Calendar, label: "By Date", desc: "Sort by date modified" },
-              { icon: HardDrive, label: "By Size", desc: "Sort by file size" },
-              { icon: Copy, label: "Duplicates", desc: "Find duplicate files" },
-            ].map((item, idx) => (
-              <button
-                key={idx}
-                className="flex flex-col items-center justify-center border border-gray-200 rounded-xl p-6 hover:shadow-md transition"
-              >
-                <item.icon className="w-8 h-8 text-gray-700 mb-2" />
-                <span className="font-medium text-gray-800">{item.label}</span>
-                <span className="text-xs text-gray-500 mt-1">{item.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Organization Progress */}
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
           <h2 className="text-lg font-medium text-gray-800 mb-2">
             Organization Progress
           </h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Overall Organization
-          </p>
+          <p className="text-sm text-gray-500 mb-4">Overall Organization</p>
+
+          {/* Progress Bar */}
           <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
             <div className="absolute top-0 left-0 h-full bg-black rounded-full w-[73%] transition-all"></div>
           </div>
