@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Maximize2, Minimize2, Send, Mic } from 'lucide-react';
+import clankyIcon from '../../assets/Clanky_icon.png';
 
 const FloatingChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -264,7 +265,11 @@ const FloatingChatbot = () => {
                     message.type === 'ai' ? 'bg-gray-900 text-white' : 'bg-blue-600 text-white'
                   }`}>
                     {message.type === 'ai' ? (
-                      <MessageSquare className="w-4 h-4" />
+                      <img 
+                        src={clankyIcon} 
+                        alt="Clanky AI" 
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
                     ) : (
                       <div className="w-4 h-4 rounded-full bg-white"></div>
                     )}

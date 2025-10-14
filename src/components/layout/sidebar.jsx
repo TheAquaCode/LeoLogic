@@ -2,6 +2,7 @@ import React from 'react';
 import { FolderOpen } from 'lucide-react';
 import { sidebarItems } from '../../data/mockdata';
 import Toggle from '../common/toggle';
+import logo from '../../assets/Clanky_Logo.png';
 
 const Sidebar = ({ activeTab, setActiveTab, autoOrganize, setAutoOrganize }) => {
   return (
@@ -9,9 +10,11 @@ const Sidebar = ({ activeTab, setActiveTab, autoOrganize, setAutoOrganize }) => 
       {/* App Header */}
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <FolderOpen className="w-6 h-6 text-white" />
-          </div>
+          <img 
+            src={logo} 
+            alt="AI File Sorter Logo" 
+            className="w-10 h-10 rounded-lg object-cover"
+          />
           <div>
             <h1 className="font-semibold text-gray-900">AI File Sorter</h1>
             <p className="text-sm text-gray-500">Organize with AI</p>
