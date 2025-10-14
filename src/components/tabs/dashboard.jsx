@@ -3,26 +3,34 @@ import { Activity } from "lucide-react";
 
 const Dashboard = () => {
   return (
-    <div className="flex-1 overflow-auto p-8 space-y-10 bg-gray-50">
+    <div className="flex-1 overflow-auto p-8 space-y-10" style={{ backgroundColor: 'var(--theme-bg-primary)' }}>
       {/* Dashboard Section */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-800 mb-2">Dashboard</h1>
-        <p className="text-gray-500 mb-6">
+        <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--theme-text-primary)' }}>Dashboard</h1>
+        <p className="mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
           AI-powered file organization overview
         </p>
 
         {/* Organization Progress */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-          <h2 className="text-lg font-medium text-gray-800 mb-2">
+        <div className="rounded-lg shadow-sm p-6 border" style={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          borderColor: 'var(--theme-border-primary)'
+        }}>
+          <h2 className="text-lg font-medium mb-2" style={{ color: 'var(--theme-text-primary)' }}>
             Organization Progress
           </h2>
-          <p className="text-sm text-gray-500 mb-4">Overall Organization</p>
+          <p className="text-sm mb-4" style={{ color: 'var(--theme-text-secondary)' }}>Overall Organization</p>
 
           {/* Progress Bar */}
-          <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
-            <div className="absolute top-0 left-0 h-full bg-black rounded-full w-[73%] transition-all"></div>
+          <div className="relative w-full h-3 rounded-full overflow-hidden mb-3" style={{
+            backgroundColor: 'var(--theme-border-primary)'
+          }}>
+            <div className="absolute top-0 left-0 h-full rounded-full transition-all" style={{
+              backgroundColor: 'var(--theme-primary)',
+              width: '73%'
+            }}></div>
           </div>
-          <div className="flex justify-between text-sm text-gray-600 mb-6">
+          <div className="flex justify-between text-sm mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
             <span>2,081 files organized</span>
             <span>73%</span>
           </div>
@@ -53,10 +61,14 @@ const Dashboard = () => {
             ].map((stat, i) => (
               <div
                 key={i}
-                className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center"
+                className="border rounded-lg p-4 text-center"
+                style={{
+                  backgroundColor: 'var(--theme-bg-tertiary)',
+                  borderColor: 'var(--theme-border-primary)'
+                }}
               >
-                <p className="text-gray-600 text-sm">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">
+                <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{stat.title}</p>
+                <p className="text-2xl font-bold mt-1" style={{ color: 'var(--theme-text-primary)' }}>
                   {stat.value}
                 </p>
                 <p
@@ -76,43 +88,54 @@ const Dashboard = () => {
 
       {/* Active Activity Section */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-800 mb-2">
+        <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--theme-text-primary)' }}>
           Active Activity
         </h1>
-        <p className="text-gray-500 mb-6">
+        <p className="mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
           System metrics and task monitoring
         </p>
 
         {/* Metrics */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 mb-6">
+        <div className="rounded-lg shadow-sm p-6 border mb-6" style={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          borderColor: 'var(--theme-border-primary)'
+        }}>
           <div className="flex flex-wrap justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-gray-700" />
-              <span className="text-sm font-medium text-gray-800">
+              <Activity className="w-5 h-5" style={{ color: 'var(--theme-text-secondary)' }} />
+              <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
                 CPU Usage
               </span>
             </div>
-            <span className="text-2xl font-semibold text-gray-800">45%</span>
+            <span className="text-2xl font-semibold" style={{ color: 'var(--theme-text-primary)' }}>45%</span>
           </div>
-          <div className="w-full h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
-            <div className="h-full bg-black w-[45%] rounded-full"></div>
+          <div className="w-full h-2 rounded-full mb-6 overflow-hidden" style={{
+            backgroundColor: 'var(--theme-border-primary)'
+          }}>
+            <div className="h-full rounded-full" style={{
+              backgroundColor: 'var(--theme-primary)',
+              width: '45%'
+            }}></div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm text-gray-700">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm" style={{ color: 'var(--theme-text-secondary)' }}>
             <div>
-              <p className="font-medium">Processing Speed</p>
-              <p className="text-gray-500">127 files/min</p>
+              <p className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>Processing Speed</p>
+              <p>127 files/min</p>
             </div>
             <div>
-              <p className="font-medium">Queue Status</p>
-              <p className="text-gray-500">23 files pending</p>
+              <p className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>Queue Status</p>
+              <p>23 files pending</p>
             </div>
           </div>
         </div>
 
         {/* Active Tasks */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-          <h2 className="text-lg font-medium text-gray-800 mb-4">
+        <div className="rounded-lg shadow-sm p-6 border" style={{
+          backgroundColor: 'var(--theme-bg-secondary)',
+          borderColor: 'var(--theme-border-primary)'
+        }}>
+          <h2 className="text-lg font-medium mb-4" style={{ color: 'var(--theme-text-primary)' }}>
             Active Tasks
           </h2>
 
@@ -142,7 +165,7 @@ const Dashboard = () => {
             <div key={i} className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-800">{task.name}</span>
+                  <span className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>{task.name}</span>
                   <span
                     className={`text-xs px-2 py-1 rounded-full ${
                       task.status === "Running"
@@ -155,9 +178,11 @@ const Dashboard = () => {
                     {task.status}
                   </span>
                 </div>
-                <span className="text-sm text-gray-500">{task.details}</span>
+                <span className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{task.details}</span>
               </div>
-              <div className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="relative w-full h-2 rounded-full overflow-hidden" style={{
+                backgroundColor: 'var(--theme-border-primary)'
+              }}>
                 <div
                   className={`${task.color} h-full rounded-full`}
                   style={{ width: `${task.progress}%` }}
