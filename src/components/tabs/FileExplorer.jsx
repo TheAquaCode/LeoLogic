@@ -6,15 +6,34 @@ import Categories from '../ui/categories';
 const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 transition-all ${
-      isSelected
-        ? 'border-blue-500 bg-blue-50'
-        : 'border-gray-200 hover:border-gray-300 bg-white'
-    }`}
+    className="flex flex-col items-center justify-center p-6 rounded-lg border-2 transition-all"
+    style={{
+      borderColor: isSelected ? 'var(--theme-primary)' : 'var(--theme-border-primary)',
+      backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.1)' : 'var(--theme-bg-secondary)'
+    }}
+    onMouseEnter={(e) => {
+      if (!isSelected) {
+        e.currentTarget.style.borderColor = 'var(--theme-border-primary)';
+        e.currentTarget.style.backgroundColor = 'var(--theme-card-hover)';
+      }
+    }}
+    onMouseLeave={(e) => {
+      if (!isSelected) {
+        e.currentTarget.style.borderColor = 'var(--theme-border-primary)';
+        e.currentTarget.style.backgroundColor = 'var(--theme-bg-secondary)';
+      }
+    }}
   >
-    <Icon className={`w-8 h-8 mb-3 ${isSelected ? 'text-blue-500' : 'text-gray-700'}`} />
-    <h3 className="font-semibold text-gray-900 mb-1">{title}</h3>
-    <p className="text-sm text-gray-500">{description}</p>
+    <Icon 
+      className="w-8 h-8 mb-3" 
+      style={{ color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}
+    />
+    <h3 className="font-semibold mb-1" style={{ color: 'var(--theme-text-primary)' }}>
+      {title}
+    </h3>
+    <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>
+      {description}
+    </p>
   </button>
 );
 
@@ -40,10 +59,14 @@ const FileExplorer = () => {
       {/* Quick Sort Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <Zap className="w-6 h-6" />
-          <h2 className="text-2xl font-semibold">Quick Sort</h2>
+          <Zap className="w-6 h-6" style={{ color: 'var(--theme-text-primary)' }} />
+          <h2 className="text-2xl font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
+            Quick Sort
+          </h2>
         </div>
-        <p className="text-gray-600 mb-6">Organize files quickly with AI-powered actions</p>
+        <p className="mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
+          Organize files quickly with AI-powered actions
+        </p>
         
         <div className="grid grid-cols-4 gap-4 mb-4">
           {sortOptions.map((option) => (
@@ -59,16 +82,18 @@ const FileExplorer = () => {
         </div>
 
         <button
-       onClick={handleStart}
-       disabled={!selectedSort}
-  className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
-    selectedSort
-      ? 'bg-blue-600 text-white hover:bg-blue-700'
-      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-  }`}
->
-  Start
-</button>
+          onClick={handleStart}
+          disabled={!selectedSort}
+          className="w-full px-6 py-2 rounded-lg font-medium transition-all"
+          style={{
+            backgroundColor: selectedSort ? 'var(--theme-primary)' : 'var(--theme-border-primary)',
+            color: selectedSort ? '#ffffff' : 'var(--theme-text-tertiary)',
+            cursor: selectedSort ? 'pointer' : 'not-allowed',
+            opacity: selectedSort ? 1 : 0.6
+          }}
+        >
+          Start
+        </button>
       </div>
 
       {/* Original File Explorer Grid */}
