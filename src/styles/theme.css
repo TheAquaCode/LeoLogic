@@ -1,0 +1,363 @@
+/* theme.css - Centralized Theme Configuration */
+/* Import this in index.js AFTER index.css to override Tailwind classes */
+
+:root {
+  /* Primary Brand Color */
+  --theme-primary: #2563eb;
+  --theme-primary-hover: #1d4ed8;
+  --theme-primary-light: #3b82f6;
+  
+  /* Background Colors */
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  /* Text Colors */
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  /* Border Colors */
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  /* Status Colors */
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  --theme-error: #dc2626;
+  
+  /* UI Element Colors */
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  /* Chat Colors */
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #2563eb;
+  --theme-chat-user-text: #ffffff;
+  
+  /* Slider/Toggle */
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #2563eb;
+}
+
+/* Override Tailwind classes with theme variables */
+
+/* Backgrounds */
+.bg-gray-50 { background-color: var(--theme-bg-primary) !important; }
+.bg-white { background-color: var(--theme-bg-secondary) !important; }
+.bg-gray-100 { background-color: var(--theme-bg-tertiary) !important; }
+.bg-blue-600 { background-color: var(--theme-primary) !important; }
+.bg-blue-700 { background-color: var(--theme-primary-hover) !important; }
+
+/* Hover states - need different colors for dark mode */
+.hover\:bg-gray-50:hover { 
+  background-color: var(--theme-sidebar-hover) !important; 
+}
+.hover\:bg-blue-700:hover { 
+  background-color: var(--theme-primary-hover) !important; 
+}
+.hover\:bg-gray-200:hover { 
+  background-color: var(--theme-card-hover) !important; 
+}
+
+/* Text Colors */
+.text-gray-900 { color: var(--theme-text-primary) !important; }
+.text-gray-600 { color: var(--theme-text-secondary) !important; }
+.text-gray-500 { color: var(--theme-text-tertiary) !important; }
+.text-gray-700 { color: var(--theme-text-secondary) !important; }
+.text-gray-400 { color: var(--theme-text-tertiary) !important; }
+.text-white { color: #ffffff !important; }
+.text-blue-600 { color: var(--theme-primary) !important; }
+
+.hover\:text-gray-900:hover { color: var(--theme-text-primary) !important; }
+.hover\:text-gray-600:hover { color: var(--theme-text-secondary) !important; }
+.hover\:text-gray-700:hover { color: var(--theme-text-secondary) !important; }
+
+/* Borders */
+.border-gray-200 { border-color: var(--theme-border-primary) !important; }
+.border-gray-100 { border-color: var(--theme-border-secondary) !important; }
+.border-gray-300 { border-color: var(--theme-border-primary) !important; }
+
+/* Status Colors */
+.bg-green-50 { background-color: var(--theme-success-bg) !important; }
+.text-green-600 { color: var(--theme-success) !important; }
+.text-green-700 { color: var(--theme-success) !important; }
+.bg-green-100 { background-color: var(--theme-success-bg) !important; }
+.text-green-500 { color: var(--theme-success) !important; }
+
+.bg-yellow-100 { background-color: var(--theme-warning-bg) !important; }
+.text-yellow-600 { color: var(--theme-warning) !important; }
+
+/* Buttons */
+.bg-blue-100 { background-color: rgba(37, 99, 235, 0.1) !important; }
+.text-blue-600 { color: var(--theme-primary) !important; }
+
+/* Gradients */
+.from-blue-600 { --tw-gradient-from: var(--theme-primary) !important; }
+.to-blue-700 { --tw-gradient-to: var(--theme-primary-hover) !important; }
+
+/* Slider customization */
+.slider::-webkit-slider-thumb {
+  background: var(--theme-slider-thumb) !important;
+}
+.slider::-moz-range-thumb {
+  background: var(--theme-slider-thumb) !important;
+}
+
+/* Focus rings */
+.focus\:ring-blue-500:focus { 
+  --tw-ring-opacity: 1;
+  --tw-ring-color: var(--theme-primary) !important; 
+}
+.focus\:border-blue-500:focus { 
+  border-color: var(--theme-primary) !important; 
+}
+
+/* Category colors - these stay the same across themes */
+.bg-blue-500 { background-color: #3b82f6 !important; }
+.bg-pink-500 { background-color: #ec4899 !important; }
+.bg-purple-500 { background-color: #a855f7 !important; }
+
+/* Disabled states */
+.disabled\:bg-gray-300:disabled { background-color: #d1d5db !important; }
+
+
+/*
+:root {
+  --theme-primary: #3b82f6;
+  --theme-primary-hover: #2563eb;
+  --theme-primary-light: #60a5fa;
+  
+  --theme-bg-primary: #09090b;
+  --theme-bg-secondary: #18181b;
+  --theme-bg-tertiary: #27272a;
+  
+  --theme-text-primary: #fafafa;
+  --theme-text-secondary: #d4d4d8;
+  --theme-text-tertiary: #a1a1aa;
+  
+  --theme-border-primary: #3f3f46;
+  --theme-border-secondary: #27272a;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #14532d;
+  --theme-warning: #eab308;
+  --theme-warning-bg: #422006;
+  
+  --theme-sidebar-active: #3f3f46;
+  --theme-sidebar-hover: #27272a;
+  --theme-card-hover: #27272a;
+  
+  --theme-chat-ai-bg: #27272a;
+  --theme-chat-ai-text: #fafafa;
+  --theme-chat-user-bg: #3b82f6;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #e4e4e7;
+  --theme-toggle-active: #3b82f6;
+}
+*/
+
+/* GREEN THEME */
+/*
+:root {
+  --theme-primary: #16a34a;
+  --theme-primary-hover: #15803d;
+  --theme-primary-light: #22c55e;
+  
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #16a34a;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #16a34a;
+}
+
+.from-blue-600 { --tw-gradient-from: #16a34a !important; }
+.to-blue-700 { --tw-gradient-to: #15803d !important; }
+*/
+
+/* PURPLE THEME */
+/*
+:root {
+  --theme-primary: #9333ea;
+  --theme-primary-hover: #7e22ce;
+  --theme-primary-light: #a855f7;
+  
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #9333ea;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #9333ea;
+}
+
+.from-blue-600 { --tw-gradient-from: #9333ea !important; }
+.to-blue-700 { --tw-gradient-to: #7e22ce !important; }
+*/
+
+/* ROSE/PINK THEME */
+/*
+:root {
+  --theme-primary: #e11d48;
+  --theme-primary-hover: #be123c;
+  --theme-primary-light: #f43f5e;
+  
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #e11d48;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #e11d48;
+}
+
+.from-blue-600 { --tw-gradient-from: #e11d48 !important; }
+.to-blue-700 { --tw-gradient-to: #be123c !important; }
+*/
+
+/* ORANGE THEME */
+/*
+:root {
+  --theme-primary: #ea580c;
+  --theme-primary-hover: #c2410c;
+  --theme-primary-light: #f97316;
+  
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #ea580c;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #ea580c;
+}
+
+.from-blue-600 { --tw-gradient-from: #ea580c !important; }
+.to-blue-700 { --tw-gradient-to: #c2410c !important; }
+*/
+
+/* TEAL/CYAN THEME */
+/*
+:root {
+  --theme-primary: #0891b2;
+  --theme-primary-hover: #0e7490;
+  --theme-primary-light: #06b6d4;
+  
+  --theme-bg-primary: #f9fafb;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f3f4f6;
+  
+  --theme-text-primary: #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-tertiary: #6b7280;
+  
+  --theme-border-primary: #e5e7eb;
+  --theme-border-secondary: #f3f4f6;
+  
+  --theme-success: #22c55e;
+  --theme-success-bg: #dcfce7;
+  --theme-warning: #ca8a04;
+  --theme-warning-bg: #fef9c3;
+  
+  --theme-sidebar-active: #f3f4f6;
+  --theme-sidebar-hover: #f9fafb;
+  --theme-card-hover: #f9fafb;
+  
+  --theme-chat-ai-bg: #f3f4f6;
+  --theme-chat-ai-text: #111827;
+  --theme-chat-user-bg: #0891b2;
+  --theme-chat-user-text: #ffffff;
+  
+  --theme-slider-thumb: #1f2937;
+  --theme-toggle-active: #0891b2;
+}
+
+.from-blue-600 { --tw-gradient-from: #0891b2 !important; }
+.to-blue-700 { --tw-gradient-to: #0e7490 !important; }
+*/
