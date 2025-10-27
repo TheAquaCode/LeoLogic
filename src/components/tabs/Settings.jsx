@@ -272,15 +272,19 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   ];
 
   return (
-    <div
-  className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-    chatbotMaximized ? 'pr-[500px]' : ''
-  }`}
+  <div
+    className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+    style={{
+      width: chatbotMaximized ? 'calc(100% - 420px)' : '100%',
+      transition: 'width 0.3s ease, margin-right 0.3s ease',
+    }}
+  >
+
   style={{
         // UPDATED: Adjust width when chatbot is maximized
         marginRight: chatbotMaximized ? '480px' : '0'
       }}
-    >
+    
       <div className="border-b px-6 max-w-7xl mx-auto w-full" style={{
         backgroundColor: 'var(--theme-bg-secondary)', 
         borderColor: 'var(--theme-border-primary)' 
