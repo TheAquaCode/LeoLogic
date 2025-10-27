@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
 
 // Inline components
+
+
 const SettingsCard = ({ title, children, icon: Icon }) => {
   return (
-    <div className="rounded-lg border p-6" style={{
-      backgroundColor: 'var(--theme-bg-secondary)',
-      borderColor: 'var(--theme-border-primary)'
+    <div className="rounded-lg border p-6" style={{ 
+      backgroundColor: 'var(--theme-bg-secondary)', 
+      borderColor: 'var(--theme-border-primary)' 
     }}>
       <div className="flex items-center space-x-3 mb-6">
         {Icon && <Icon className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />}
@@ -30,8 +32,8 @@ const Slider = ({ label, value, onChange, min = 0, max = 100, step = 1 }) => {
         type="range"
         min={min}
         max={max}
-        value={value}
         step={step}
+        value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
         className="slider"
         style={{
@@ -40,7 +42,7 @@ const Slider = ({ label, value, onChange, min = 0, max = 100, step = 1 }) => {
           borderRadius: '4px',
           background: `linear-gradient(to right, var(--theme-primary) 0%, var(--theme-primary) ${value}%, var(--theme-border-primary) ${value}%, var(--theme-border-primary) 100%)`,
           outline: 'none',
-          webkitAppearance: 'none',
+          WebkitAppearance: 'none',
           appearance: 'none'
         }}
       />
@@ -69,14 +71,14 @@ const Dropdown = ({ label, value, onChange, options }) => {
             </option>
           ))}
         </select>
-        <svg
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 pointer-events-none"
-          style={{ color: 'var(--theme-text-tertiary)' }}
-          fill="none"
-          stroke="currentColor"
+        <svg 
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 pointer-events-none" 
+          fill="none" 
+          stroke="currentColor" 
           viewBox="0 0 24 24"
+          style={{ color: 'var(--theme-text-tertiary)' }}
         >
-          <path strokeLinecap="round" strokeLineJoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
     </div>
@@ -92,7 +94,7 @@ const Switch = ({ label, value, onChange, description }) => {
       </div>
       <button
         onClick={() => onChange(!value)}
-        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:ring-2 focus:ring-offset-2"
+        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
         style={{
           backgroundColor: value ? 'var(--theme-toggle-active)' : 'var(--theme-border-primary)'
         }}
@@ -108,6 +110,7 @@ const Switch = ({ label, value, onChange, description }) => {
   );
 };
 
+// UPDATED: Added chatbotMaximized prop
 const SettingsPage = ({ chatbotMaximized = false }) => {
   const loadSettings = () => {
     const savedSettings = window.appSettings || {
@@ -127,7 +130,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
         audioProcessing: false,
         videoAnalysis: false
       },
-      scanFrequency: 'hourly',
+      scanFrequency: 'Hourly',
       runOnStartup: false,
       desktopNotifications: true,
       minimizeToTray: true,
@@ -135,7 +138,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       skipHiddenFiles: true,
       preserveMetadata: true,
       createBackups: false,
-      logLevel: 'info'
+      logLevel: 'Info'
     };
     return savedSettings;
   };
@@ -194,12 +197,12 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
   const getAccentColors = (accent) => {
     const colors = {
-      blue: { primary: '🔵#2563eb', hover: '🔵#1d4ed8' },
-      green: { primary: '🟢#16a34a', hover: '🟢#15803d' },
-      purple: { primary: '🟣#9333ea', hover: '🟣#7e22ce' },
-      rose: { primary: '🌹#e11d48', hover: '🌹#be123c' },
-      orange: { primary: '🟠#ea580c', hover: '🟠#c2410c' },
-      teal: { primary: '🩵#0d9488', hover: '🩵#0f766e' }
+      blue: { primary: '#2563eb', hover: '#1d4ed8' },
+      green: { primary: '#16a34a', hover: '#15803d' },
+      purple: { primary: '#9333ea', hover: '#7e22ce' },
+      rose: { primary: '#e11d48', hover: '#be123c' },
+      orange: { primary: '#ea580c', hover: '#c2410c' },
+      teal: { primary: '#0891b2', hover: '#0e7490' }
     };
     return colors[accent] || colors.blue;
   };
@@ -207,39 +210,39 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   const applyTheme = (base, accent) => {
     const root = document.documentElement;
     const accentColors = getAccentColors(accent);
-
+    
     if (base === 'dark') {
-      root.style.setProperty('--theme-bg-primary', '🌚#09090b');
-      root.style.setProperty('--theme-bg-secondary', '🌑#18181b');
-      root.style.setProperty('--theme-bg-tertiary', '⬛#27272a');
-      root.style.setProperty('--theme-text-primary', '⬜#fafafa');
-      root.style.setProperty('--theme-text-secondary', '🤍#d4d4d8');
-      root.style.setProperty('--theme-text-tertiary', '💿#a1a1aa');
-      root.style.setProperty('--theme-border-primary', '🔳#3f3f46');
-      root.style.setProperty('--theme-border-secondary', '⬜#27272a');
-      root.style.setProperty('--theme-sidebar-active', '🟦#3f3f46');
-      root.style.setProperty('--theme-sidebar-hover', '🔲#27272a');
-      root.style.setProperty('--theme-card-hover', '🔲#27272a');
-      root.style.setProperty('--theme-chat-ai-bg', '⬜#27272a');
-      root.style.setProperty('--theme-chat-ai-text', '⬜#fafafa');
-      root.style.setProperty('--theme-slider-thumb', '🔴#e4e7e9');
+      root.style.setProperty('--theme-bg-primary', '#09090b');
+      root.style.setProperty('--theme-bg-secondary', '#18181b');
+      root.style.setProperty('--theme-bg-tertiary', '#27272a');
+      root.style.setProperty('--theme-text-primary', '#fafafa');
+      root.style.setProperty('--theme-text-secondary', '#d4d4d8');
+      root.style.setProperty('--theme-text-tertiary', '#a1a1aa');
+      root.style.setProperty('--theme-border-primary', '#3f3f46');
+      root.style.setProperty('--theme-border-secondary', '#27272a');
+      root.style.setProperty('--theme-sidebar-active', '#3f3f46');
+      root.style.setProperty('--theme-sidebar-hover', '#27272a');
+      root.style.setProperty('--theme-card-hover', '#27272a');
+      root.style.setProperty('--theme-chat-ai-bg', '#27272a');
+      root.style.setProperty('--theme-chat-ai-text', '#fafafa');
+      root.style.setProperty('--theme-slider-thumb', '#e4e4e7');
     } else {
-      root.style.setProperty('--theme-bg-primary', '⬜#f9fafb');
-      root.style.setProperty('--theme-bg-secondary', '⬜#ffffff');
-      root.style.setProperty('--theme-bg-tertiary', '⬜#f3f4f6');
-      root.style.setProperty('--theme-text-primary', '⬛#111827');
-      root.style.setProperty('--theme-text-secondary', '🤎#4b5563');
-      root.style.setProperty('--theme-text-tertiary', '🩶#6b7280');
-      root.style.setProperty('--theme-border-primary', '⬛#e5e7eb');
-      root.style.setProperty('--theme-border-secondary', '⬜#f3f4f6');
-      root.style.setProperty('--theme-sidebar-active', '🟦#f3f4f6');
-      root.style.setProperty('--theme-sidebar-hover', '⬜#f9fafb');
-      root.style.setProperty('--theme-card-hover', '⬜#f9fafb');
-      root.style.setProperty('--theme-chat-ai-bg', '⬜#f3f4f6');
-      root.style.setProperty('--theme-chat-ai-text', '⬛#111827');
-      root.style.setProperty('--theme-slider-thumb', '⬜#1f2937');
+      root.style.setProperty('--theme-bg-primary', '#f9fafb');
+      root.style.setProperty('--theme-bg-secondary', '#ffffff');
+      root.style.setProperty('--theme-bg-tertiary', '#f3f4f6');
+      root.style.setProperty('--theme-text-primary', '#111827');
+      root.style.setProperty('--theme-text-secondary', '#4b5563');
+      root.style.setProperty('--theme-text-tertiary', '#6b7280');
+      root.style.setProperty('--theme-border-primary', '#e5e7eb');
+      root.style.setProperty('--theme-border-secondary', '#f3f4f6');
+      root.style.setProperty('--theme-sidebar-active', '#f3f4f6');
+      root.style.setProperty('--theme-sidebar-hover', '#f9fafb');
+      root.style.setProperty('--theme-card-hover', '#f9fafb');
+      root.style.setProperty('--theme-chat-ai-bg', '#f3f4f6');
+      root.style.setProperty('--theme-chat-ai-text', '#111827');
+      root.style.setProperty('--theme-slider-thumb', '#1f2937');
     }
-
+    
     root.style.setProperty('--theme-primary', accentColors.primary);
     root.style.setProperty('--theme-primary-hover', accentColors.hover);
     root.style.setProperty('--theme-toggle-active', accentColors.primary);
@@ -261,7 +264,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   ];
 
   const logLevelOptions = [
-    { value: "Error only", label: "Error only" },
+    { value: "Error", label: "Error only" },
     { value: "Warning", label: "Warning" },
     { value: "Info", label: "Info" },
     { value: "Debug", label: "Debug" },
@@ -269,18 +272,16 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   ];
 
   return (
-    <div
-      className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-        chatbotMaximized ? 'pr-[500px]' : ''
-      }`}
+    <div 
+      className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
       style={{
         // UPDATED: Adjust width when chatbot is maximized
         marginRight: chatbotMaximized ? '480px' : '0'
       }}
     >
-      <div className="border-b px-6 max-w-7xl mx-auto w-full" style={{
-        backgroundColor: 'var(--theme-bg-secondary)',
-        borderColor: 'var(--theme-border-primary)'
+      <div className="border-b px-6" style={{ 
+        backgroundColor: 'var(--theme-bg-secondary)', 
+        borderColor: 'var(--theme-border-primary)' 
       }}>
         <div className="flex space-x-8">
           <button
@@ -307,12 +308,12 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       </div>
 
       <div className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto w-full space-y-6">
-          {activeTab === 'general' ? (
-            <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              <div className="rounded-lg border p-6" style={{
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
+        {activeTab === 'general' ? (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="rounded-lg border p-6" style={{ 
+                backgroundColor: 'var(--theme-bg-secondary)', 
+                borderColor: 'var(--theme-border-primary)' 
               }}>
                 <div className="flex items-center space-x-3 mb-4">
                   <Palette className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
@@ -340,9 +341,9 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                 </div>
               </div>
 
-              <div className="rounded-lg border p-6" style={{
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
+              <div className="rounded-lg border p-6" style={{ 
+                backgroundColor: 'var(--theme-bg-secondary)', 
+                borderColor: 'var(--theme-border-primary)' 
               }}>
                 <div className="flex items-center space-x-3 mb-4">
                   <Bell className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
@@ -366,52 +367,49 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-lg border p-6" style={{
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
-              }}>
-                <div className="flex items-center space-x-3 mb-4">
-                  <Settings className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Confidence Thresholds</h3>
-                </div>
-                <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-4'}`}>
-                  <Slider
-                    label="Text"
-                    value={settings.confidenceThresholds.text}
-                    onChange={(value) => updateConfidenceThreshold('text', value)}
-                  />
-                  <Slider
-                    label="Images"
-                    value={settings.confidenceThresholds.images}
-                    onChange={(value) => updateConfidenceThreshold('images', value)}
-                  />
-                  <Slider
-                    label="Audio"
-                    value={settings.confidenceThresholds.audio}
-                    onChange={(value) => updateConfidenceThreshold('audio', value)}
-                  />
-                  <Slider
-                    label="Video"
-                    value={settings.confidenceThresholds.video}
-                    onChange={(value) => updateConfidenceThreshold('video', value)}
-                  />
-                </div>
+            <div className="rounded-lg border p-6" style={{ 
+              backgroundColor: 'var(--theme-bg-secondary)', 
+              borderColor: 'var(--theme-border-primary)' 
+            }}>
+              <div className="flex items-center space-x-3 mb-4">
+                <Settings className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Confidence Thresholds</h3>
               </div>
+              <div className="grid grid-cols-4 gap-6">
+                <Slider
+                  label="Text"
+                  value={settings.confidenceThresholds.text}
+                  onChange={(value) => updateConfidenceThreshold('text', value)}
+                />
+                <Slider
+                  label="Images"
+                  value={settings.confidenceThresholds.images}
+                  onChange={(value) => updateConfidenceThreshold('images', value)}
+                />
+                <Slider
+                  label="Audio"
+                  value={settings.confidenceThresholds.audio}
+                  onChange={(value) => updateConfidenceThreshold('audio', value)}
+                />
+                <Slider
+                  label="Video"
+                  value={settings.confidenceThresholds.video}
+                  onChange={(value) => updateConfidenceThreshold('video', value)}
+                />
+              </div>
+            </div>
 
-              <div className="rounded-lg border p-6" style={{
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
-              }}>
-                <SettingsCard title="Fallback Behavior" icon={AlertTriangle}>
-                  <Dropdown
-                    label="When confidence is low"
-                    value={settings.fallbackBehavior}
-                    onChange={(value) => updateSetting('fallbackBehavior', value)}
-                    options={fallbackOptions}
-                  />
-                </SettingsCard>
-              </div>
+            <div className="grid grid-cols-3 gap-6">
+              <SettingsCard title="Fallback Behavior" icon={AlertTriangle}>
+                <Dropdown
+                  label="When confidence is low"
+                  value={settings.fallbackBehavior}
+                  onChange={(value) => updateSetting('fallbackBehavior', value)}
+                  options={fallbackOptions}
+                />
+              </SettingsCard>
 
               <SettingsCard title="AI Models" icon={Brain}>
                 <Switch
@@ -452,95 +450,95 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                 />
               </SettingsCard>
             </div>
-          ) : (
-            <div className="max-w-6xl mx-auto space-y-6">
-              <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                <div className="rounded-lg border p-6" style={{
-                  backgroundColor: 'var(--theme-bg-secondary)',
-                  borderColor: 'var(--theme-border-primary)'
-                }}>
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Sliders className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-                    <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>File Processing</h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Max File Size (MB)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10000"
-                        value={settings.maxFileSize}
-                        onChange={(e) => updateSetting('maxFileSize', parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2"
-                        style={{
-                          backgroundColor: 'var(--theme-bg-secondary)',
-                          borderColor: 'var(--theme-border-primary)',
-                          color: 'var(--theme-text-primary)'
-                        }}
-                      />
-                    </div>
-                    <Dropdown
-                      label="Log Level"
-                      value={settings.logLevel}
-                      onChange={(value) => updateSetting('logLevel', value)}
-                      options={logLevelOptions}
-                    />
-                  </div>
+          </div>
+        ) : (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="rounded-lg border p-6" style={{ 
+                backgroundColor: 'var(--theme-bg-secondary)', 
+                borderColor: 'var(--theme-border-primary)' 
+              }}>
+                <div className="flex items-center space-x-3 mb-4">
+                  <Sliders className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>File Processing</h3>
                 </div>
-
-                <div className="rounded-lg border p-6" style={{
-                  backgroundColor: 'var(--theme-bg-secondary)',
-                  borderColor: 'var(--theme-border-primary)'
-                }}>
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Settings className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-                    <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>File Options</h3>
-                  </div>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Switch
-                      label="Skip Hidden Files"
-                      value={settings.skipHiddenFiles}
-                      onChange={(value) => updateSetting('skipHiddenFiles', value)}
-                      description="Don't process files starting with '.'"
-                    />
-                    <Switch
-                      label="Preserve Metadata"
-                      value={settings.preserveMetadata}
-                      onChange={(value) => updateSetting('preserveMetadata', value)}
-                      description="Keep file dates"
-                    />
-                    <Switch
-                      label="Create Backups"
-                      value={settings.createBackups}
-                      onChange={(value) => updateSetting('createBackups', value)}
-                      description="Backup before moving"
+                    <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Max File Size (MB)</label>
+                    <input
+                      type="number"
+                      value={settings.maxFileSize}
+                      onChange={(e) => updateSetting('maxFileSize', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2"
+                      style={{
+                        backgroundColor: 'var(--theme-bg-secondary)',
+                        borderColor: 'var(--theme-border-primary)',
+                        color: 'var(--theme-text-primary)'
+                      }}
+                      min="1"
+                      max="10000"
                     />
                   </div>
+                  <Dropdown
+                    label="Log Level"
+                    value={settings.logLevel}
+                    onChange={(value) => updateSetting('logLevel', value)}
+                    options={logLevelOptions}
+                  />
                 </div>
               </div>
 
-              <div className="rounded-lg border p-6" style={{
-                backgroundColor: 'var(--theme-bg-secondary)',
-                borderColor: 'var(--theme-border-primary)'
+              <div className="rounded-lg border p-6" style={{ 
+                backgroundColor: 'var(--theme-bg-secondary)', 
+                borderColor: 'var(--theme-border-primary)' 
               }}>
                 <div className="flex items-center space-x-3 mb-4">
-                  <RotateCcw className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Maintenance</h3>
+                  <Settings className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>File Options</h3>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Clear Application Cache</h4>
-                    <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>Remove temporary files and cached data</p>
-                  </div>
-                  <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
-                    Clear Cache
-                  </button>
+                <div className="space-y-2">
+                  <Switch
+                    label="Skip Hidden Files"
+                    value={settings.skipHiddenFiles}
+                    onChange={(value) => updateSetting('skipHiddenFiles', value)}
+                    description="Don't process files starting with '.'"
+                  />
+                  <Switch
+                    label="Preserve Metadata"
+                    value={settings.preserveMetadata}
+                    onChange={(value) => updateSetting('preserveMetadata', value)}
+                    description="Keep file dates"
+                  />
+                  <Switch
+                    label="Create Backups"
+                    value={settings.createBackups}
+                    onChange={(value) => updateSetting('createBackups', value)}
+                    description="Backup before moving"
+                  />
                 </div>
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="rounded-lg border p-6" style={{ 
+              backgroundColor: 'var(--theme-bg-secondary)', 
+              borderColor: 'var(--theme-border-primary)' 
+            }}>
+              <div className="flex items-center space-x-3 mb-4">
+                <RotateCcw className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Maintenance</h3>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>Clear Application Cache</h4>
+                  <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>Remove temporary files and cached data</p>
+                </div>
+                <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+                  Clear Cache
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
