@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Maximize2, Minimize2, Send, Mic, ChevronRight } from 'lucide-react';
 
-const FloatingChatbot = () => {
+const FloatingChatbot = ({ onMaximizeChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState([
@@ -34,6 +34,13 @@ const FloatingChatbot = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // NEW: Notify parent component when maximize state changes
+  useEffect(() => {
+    if (onMaximizeChange) {
+      onMaximizeChange(isMaximized);
+    }
+  }, [isMaximized, onMaximizeChange]);
 
   const handleSendMessage = () => {
     if (chatInput.trim()) {
