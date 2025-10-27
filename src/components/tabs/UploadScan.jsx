@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { Upload, Folder, X } from 'lucide-react';
 
-const UploadScan = () => {
+const UploadScan = ({ isChatMaximized }) => {
   const [showFilePopup, setShowFilePopup] = useState(false);
   const [showFolderPopup, setShowFolderPopup] = useState(false);
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="flex-1 p-6">
-        <div className="max-w-4xl mx-auto">
+      <div 
+        className={`flex-1 p-6 transition-all duration-300 ${
+          isChatMaximized ? 'pr-[500px]' : ''
+        }`}
+      >
+        <div className={`mx-auto ${isChatMaximized ? 'max-w-2xl' : 'max-w-4xl'}`}>
           <div className="rounded-lg border p-8" style={{
             backgroundColor: 'var(--theme-bg-secondary)',
             borderColor: 'var(--theme-border-primary)'
@@ -20,7 +24,9 @@ const UploadScan = () => {
 
             {/* Upload box */}
             <div
-              className="border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer"
+              className={`border-2 border-dashed rounded-lg text-center transition-colors cursor-pointer ${
+                isChatMaximized ? 'p-8' : 'p-12'
+              }`}
               style={{
                 borderColor: 'var(--theme-border-primary)'
               }}
@@ -33,22 +39,44 @@ const UploadScan = () => {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{
-                backgroundColor: 'var(--theme-bg-tertiary)'
-              }}>
-                <Upload className="w-8 h-8" style={{ color: 'var(--theme-text-tertiary)' }} />
+              <div 
+                className={`rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  isChatMaximized ? 'w-12 h-12' : 'w-16 h-16'
+                }`} 
+                style={{
+                  backgroundColor: 'var(--theme-bg-tertiary)'
+                }}
+              >
+                <Upload 
+                  className={isChatMaximized ? 'w-6 h-6' : 'w-8 h-8'} 
+                  style={{ color: 'var(--theme-text-tertiary)' }} 
+                />
               </div>
-              <h4 className="text-lg font-medium mb-2" style={{ color: 'var(--theme-text-primary)' }}>
+              <h4 
+                className={`font-medium mb-2 ${
+                  isChatMaximized ? 'text-base' : 'text-lg'
+                }`} 
+                style={{ color: 'var(--theme-text-primary)' }}
+              >
                 Drop files here or click to upload
               </h4>
-              <p className="mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
+              <p 
+                className={isChatMaximized ? 'mb-4 text-sm' : 'mb-6'} 
+                style={{ color: 'var(--theme-text-secondary)' }}
+              >
                 Support for images, videos, documents, and archives
               </p>
 
-              <div className="flex justify-center space-x-4">
+              <div 
+                className={`flex justify-center ${
+                  isChatMaximized ? 'flex-col space-y-3' : 'flex-row space-x-4'
+                }`}
+              >
                 <button
                   onClick={() => setShowFilePopup(true)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:opacity-80 transition-colors"
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:opacity-80 transition-colors ${
+                    isChatMaximized ? 'w-full' : ''
+                  }`}
                   style={{
                     backgroundColor: 'var(--theme-bg-tertiary)',
                     color: 'var(--theme-text-primary)'
@@ -59,7 +87,9 @@ const UploadScan = () => {
                 </button>
                 <button
                   onClick={() => setShowFolderPopup(true)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:opacity-80 transition-colors"
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:opacity-80 transition-colors ${
+                    isChatMaximized ? 'w-full' : ''
+                  }`}
                   style={{
                     backgroundColor: 'var(--theme-bg-tertiary)',
                     color: 'var(--theme-text-primary)'
