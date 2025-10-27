@@ -108,7 +108,8 @@ const Switch = ({ label, value, onChange, description }) => {
   );
 };
 
-const SettingsPage = () => {
+// UPDATED: Added chatbotMaximized prop
+const SettingsPage = ({ chatbotMaximized = false }) => {
   const loadSettings = () => {
     const savedSettings = window.appSettings || {
       baseTheme: 'light',
@@ -269,7 +270,13 @@ const SettingsPage = () => {
   ];
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div 
+      className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+      style={{
+        // UPDATED: Adjust width when chatbot is maximized
+        marginRight: chatbotMaximized ? '480px' : '0'
+      }}
+    >
       <div className="border-b px-6" style={{ 
         backgroundColor: 'var(--theme-bg-secondary)', 
         borderColor: 'var(--theme-border-primary)' 
