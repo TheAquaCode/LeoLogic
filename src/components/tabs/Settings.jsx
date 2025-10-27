@@ -274,7 +274,7 @@ return (
   <div
     className="flex-1 flex flex-col overflow-hidden transition-all duration-500"
     style={{
-      width: chatbotMaximized ? 'calc(100% - 350px)' : '80%',
+      width: chatbotMaximized ? 'calc(100% - 300px)' : '100%',
       transition: 'width 0.3s ease, margin-right 0.3s ease',
     }}
   >
