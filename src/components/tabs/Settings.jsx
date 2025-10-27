@@ -270,8 +270,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     { value: "Debug", label: "Debug" },
     { value: "Verbose", label: "Verbose" }
   ];
-
-  return (
+return (
   <div
     className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
     style={{
@@ -280,11 +279,6 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     }}
   >
 
-  style={{
-        // UPDATED: Adjust width when chatbot is maximized
-        marginRight: chatbotMaximized ? '480px' : '0'
-      }}
-    
       <div className="border-b px-6 max-w-7xl mx-auto w-full" style={{
         backgroundColor: 'var(--theme-bg-secondary)', 
         borderColor: 'var(--theme-border-primary)' 
