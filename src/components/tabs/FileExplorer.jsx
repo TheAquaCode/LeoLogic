@@ -37,7 +37,7 @@ const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) 
   </button>
 );
 
-const FileExplorer = () => {
+const FileExplorer = ({ isChatMaximized }) => {
   const [selectedSort, setSelectedSort] = useState(null);
 
   const sortOptions = [
@@ -55,7 +55,11 @@ const FileExplorer = () => {
   };
 
   return (
-    <div className="flex-1 p-6 overflow-auto">
+    <div 
+      className={`flex-1 p-6 overflow-auto transition-all duration-300 ${
+        isChatMaximized ? 'pr-[500px]' : ''
+      }`}
+    >
       {/* Quick Sort Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
@@ -68,7 +72,9 @@ const FileExplorer = () => {
           Organize files quickly with AI-powered actions
         </p>
         
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className={`grid gap-4 mb-4 ${
+          isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'
+        }`}>
           {sortOptions.map((option) => (
             <QuickSortCard
               key={option.id}
@@ -97,7 +103,9 @@ const FileExplorer = () => {
       </div>
 
       {/* Original File Explorer Grid */}
-      <div className="grid grid-cols-2 gap-6 h-full">
+      <div className={`grid gap-6 h-full ${
+        isChatMaximized ? 'grid-cols-1' : 'grid-cols-2'
+      }`}>
         <WatchedFolders />
         <Categories />
       </div>

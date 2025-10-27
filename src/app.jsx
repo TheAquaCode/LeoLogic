@@ -22,19 +22,19 @@ const App = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Dashboard':
-        return <Dashboard isChatMaximized={isChatMaximized} />;  // Pass the prop
+        return <Dashboard isChatMaximized={isChatMaximized} />;
       case 'File Explorer':
-        return <FileExplorer />;
+        return <FileExplorer isChatMaximized={isChatMaximized} />;
       case 'History':
-        return <History />;
+        return <History isChatMaximized={isChatMaximized} />;
       case 'AI Assistant':
-        return <AIAssistant />;
+        return <AIAssistant isChatMaximized={isChatMaximized} />;
       case 'Upload & Scan':
-        return <UploadScan />;
+        return <UploadScan isChatMaximized={isChatMaximized} />;
       case 'Settings':
-        return <Settings />;
+        return <Settings isChatMaximized={isChatMaximized} />;
       default:
-        return <ComingSoon />;
+        return <ComingSoon isChatMaximized={isChatMaximized} />;
     }
   };
 
