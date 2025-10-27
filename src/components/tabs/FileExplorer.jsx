@@ -6,39 +6,22 @@ import Categories from '../ui/categories';
 const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center justify-center p-6 rounded-lg border-2 transition-all"
-    style={{
-      borderColor: isSelected ? 'var(--theme-primary)' : 'var(--theme-border-primary)',
-      backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.1)' : 'var(--theme-bg-secondary)'
-    }}
-    onMouseEnter={(e) => {
-      if (!isSelected) {
-        e.currentTarget.style.borderColor = 'var(--theme-border-primary)';
-        e.currentTarget.style.backgroundColor = 'var(--theme-card-hover)';
-      }
-    }}
-    onMouseLeave={(e) => {
-      if (!isSelected) {
-        e.currentTarget.style.borderColor = 'var(--theme-border-primary)';
-        e.currentTarget.style.backgroundColor = 'var(--theme-bg-secondary)';
-      }
-    }}
+    className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 transition-all ${
+      isSelected
+        ? 'border-blue-500 bg-blue-50'
+        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+    }`}
   >
-    <Icon 
-      className="w-8 h-8 mb-3" 
-      style={{ color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}
-    />
-    <h3 className="font-semibold mb-1" style={{ color: 'var(--theme-text-primary)' }}>
-      {title}
-    </h3>
-    <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>
-      {description}
-    </p>
+    <Icon className={`w-8 h-8 mb-3 ${isSelected ? 'text-blue-500' : 'text-gray-700'}`} />
+    <h3 className="font-semibold text-gray-900 mb-1">{title}</h3>
+    <p className="text-sm text-gray-500">{description}</p>
   </button>
 );
 
 const FileExplorer = () => {
   const [selectedSort, setSelectedSort] = useState(null);
+  const [watchedFolders, setWatchedFolders] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const sortOptions = [
     { id: 'type', icon: Image, title: 'By Type', description: 'Sort by file type' },
@@ -54,17 +37,100 @@ const FileExplorer = () => {
     }
   };
 
+  const handleAddWatchedFolder = async () => {
+    // Check if running in Electron - try multiple possible API structures
+    const selectFolderAPI = window.electron?.selectFolder || 
+                           window.electronAPI?.selectFolder || 
+                           window.api?.selectFolder;
+    
+    if (selectFolderAPI) {
+      try {
+        const folderPath = await selectFolderAPI();
+        if (folderPath) {
+          const folderName = folderPath.split('/').pop() || folderPath.split('\\').pop();
+          const newFolder = {
+            id: Date.now(),
+            name: folderName,
+            path: folderPath,
+            files: 0,
+            lastActivity: 'Just now',
+            status: 'Active'
+          };
+          setWatchedFolders([...watchedFolders, newFolder]);
+        }
+      } catch (error) {
+        console.error('Error selecting folder:', error);
+        alert('Error selecting folder. Please try again.');
+      }
+    } else {
+      console.log('Available APIs:', { 
+        electron: window.electron, 
+        electronAPI: window.electronAPI, 
+        api: window.api 
+      });
+      alert('Folder selection is only available in the Electron app');
+    }
+  };
+
+  const handleToggleFolderStatus = (folderId) => {
+    setWatchedFolders(watchedFolders.map(folder => 
+      folder.id === folderId 
+        ? { ...folder, status: folder.status === 'Active' ? 'Paused' : 'Active' }
+        : folder
+    ));
+  };
+
+  const handleEditFolderPath = async (folderId) => {
+    const selectFolderAPI = window.electron?.selectFolder || 
+                           window.electronAPI?.selectFolder || 
+                           window.api?.selectFolder;
+    
+    if (selectFolderAPI) {
+      try {
+        const folderPath = await selectFolderAPI();
+        if (folderPath) {
+          const folderName = folderPath.split('/').pop() || folderPath.split('\\').pop();
+          setWatchedFolders(watchedFolders.map(folder =>
+            folder.id === folderId
+              ? { ...folder, name: folderName, path: folderPath }
+              : folder
+          ));
+        }
+      } catch (error) {
+        console.error('Error selecting folder:', error);
+      }
+    }
+  };
+
+  const handleDeleteFolder = (folderId) => {
+    setWatchedFolders(watchedFolders.filter(folder => folder.id !== folderId));
+  };
+
+  const handleAddCategory = async (categoryData) => {
+    const newCategory = {
+      id: Date.now(),
+      name: categoryData.name,
+      path: categoryData.path,
+      fileTypes: [],
+      rules: 0,
+      color: 'bg-blue-500'
+    };
+    setCategories([...categories, newCategory]);
+  };
+
+  const handleDeleteCategory = (categoryId) => {
+    setCategories(categories.filter(category => category.id !== categoryId));
+  };
+
   return (
     <div className="flex-1 p-6 overflow-auto">
       {/* Quick Sort Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <Zap className="w-6 h-6" style={{ color: 'var(--theme-text-primary)' }} />
-          <h2 className="text-2xl font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
-            Quick Sort
-          </h2>
+          <Zap className="w-6 h-6" />
+          <h2 className="text-2xl font-semibold">Quick Sort</h2>
         </div>
-        <p className="mb-6" style={{ color: 'var(--theme-text-secondary)' }}>
+        <p className="text-gray-600 mb-6">
           Organize files quickly with AI-powered actions
         </p>
         
@@ -84,22 +150,30 @@ const FileExplorer = () => {
         <button
           onClick={handleStart}
           disabled={!selectedSort}
-          className="w-full px-6 py-2 rounded-lg font-medium transition-all"
-          style={{
-            backgroundColor: selectedSort ? 'var(--theme-primary)' : 'var(--theme-border-primary)',
-            color: selectedSort ? '#ffffff' : 'var(--theme-text-tertiary)',
-            cursor: selectedSort ? 'pointer' : 'not-allowed',
-            opacity: selectedSort ? 1 : 0.6
-          }}
+          className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
+            selectedSort
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
         >
           Start
         </button>
       </div>
 
-      {/* Original File Explorer Grid */}
+      {/* File Explorer Grid */}
       <div className="grid grid-cols-2 gap-6 h-full">
-        <WatchedFolders />
-        <Categories />
+        <WatchedFolders 
+          folders={watchedFolders}
+          onAddFolder={handleAddWatchedFolder}
+          onToggleStatus={handleToggleFolderStatus}
+          onEditPath={handleEditFolderPath}
+          onDelete={handleDeleteFolder}
+        />
+        <Categories 
+          categories={categories}
+          onAddCategory={handleAddCategory}
+          onDelete={handleDeleteCategory}
+        />
       </div>
     </div>
   );

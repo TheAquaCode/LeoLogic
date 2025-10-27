@@ -1,9 +1,10 @@
-import React from 'react';
-import { Eye, Plus, MoreHorizontal } from 'lucide-react';
-import { watchedFolders } from '../../data/mockdata';
+import React, { useState } from 'react';
+import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2 } from 'lucide-react';
 import { getStatusColor } from '../../utils/helpers';
 
-const WatchedFolders = () => {
+const WatchedFolders = ({ folders = [], onAddFolder, onToggleStatus, onEditPath, onDelete }) => {
+  const [openMenuId, setOpenMenuId] = useState(null);
+
   return (
     <div className="flex flex-col min-h-0">
       <div className="flex items-center justify-between mb-4">
@@ -11,7 +12,10 @@ const WatchedFolders = () => {
           <Eye className="w-5 h-5 text-gray-500" />
           <h3 className="text-lg font-semibold text-gray-900">Watched Folders</h3>
         </div>
-        <button className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button 
+          onClick={onAddFolder}
+          className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
           <Plus className="w-4 h-4" />
           <span>Add</span>
         </button>
@@ -19,23 +23,83 @@ const WatchedFolders = () => {
       <p className="text-sm text-gray-600 mb-6">Folders monitored by AI</p>
 
       <div className="space-y-3 overflow-y-auto flex-1">
-        {watchedFolders.map((folder, index) => {
-          const IconComponent = folder.icon;
-          return (
-            <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+        {folders.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <Folder className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>No folders being watched</p>
+            <p className="text-sm">Click "Add" to start monitoring a folder</p>
+          </div>
+        ) : (
+          folders.map((folder) => (
+            <div key={folder.id} className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                    <IconComponent className="w-4 h-4 text-blue-600" />
+                    <Folder className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900">{folder.name}</h4>
-                    <p className="text-sm text-gray-500">{folder.path}</p>
+                    <p className="text-sm text-gray-500 truncate max-w-xs">{folder.path}</p>
                   </div>
                 </div>
-                <button className="text-gray-400 hover:text-gray-600">
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setOpenMenuId(openMenuId === folder.id ? null : folder.id)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                  
+                  {openMenuId === folder.id && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setOpenMenuId(null)}
+                      />
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                        <button
+                          onClick={() => {
+                            onToggleStatus(folder.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          {folder.status === 'Active' ? (
+                            <>
+                              <Pause className="w-4 h-4" />
+                              <span>Pause Watching</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4" />
+                              <span>Resume Watching</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            onEditPath(folder.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span>Edit Path</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onDelete(folder.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between mt-3 text-sm">
                 <span className="text-gray-600">{folder.files} files</span>
@@ -47,8 +111,8 @@ const WatchedFolders = () => {
                 </div>
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );

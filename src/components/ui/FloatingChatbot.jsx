@@ -1,102 +1,97 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Maximize2, Minimize2, Send, Mic, Loader } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquare, X, Maximize2, Minimize2, Send, Mic } from 'lucide-react';
+import clankyIcon from '../../assets/Clanky_icon.png';
 
 const FloatingChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      type: 'ai',
+      content: "Hi! I'm your AI file organizer. I can help you sort, categorize, and manage your files. What would you like me to help you with today?",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
   const [chatInput, setChatInput] = useState('');
-  const [position, setPosition] = useState({ x: window.innerWidth - 424, y: window.innerHeight - 688 });
+  const [isLoading, setIsLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState({ online: false, ready: false });
   const [size, setSize] = useState({ width: 400, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
   const [resizeEdge, setResizeEdge] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 });
-  
-  // Backend state
-  const [modelLoaded, setModelLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isWaitingResponse, setIsWaitingResponse] = useState(false);
+  const [position, setPosition] = useState({ x: window.innerWidth - 424, y: window.innerHeight - 688 });
   
   const chatRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const API_BASE = 'http://localhost:5000';
 
-  // Check model status on mount
+  // Check backend health
   useEffect(() => {
-    checkModelStatus();
-    const interval = setInterval(checkModelStatus, 2000);
+    const checkHealth = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/health');
+        const data = await response.json();
+        setBackendStatus({ online: true, ready: data.model_ready });
+      } catch (error) {
+        setBackendStatus({ online: false, ready: false });
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 10000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isWaitingResponse]);
-
-  const checkModelStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/status`);
-      const data = await response.json();
-      
-      if (data.model_loaded && !modelLoaded) {
-        setModelLoaded(true);
-        setIsLoading(false);
-      } else if (data.loading) {
-        setIsLoading(true);
-      }
-    } catch (error) {
-      console.error('Failed to check status:', error);
-    }
-  };
-
-  const addMessage = (type, content) => {
-    const newMessage = {
-      id: Date.now(),
-      type,
-      content,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages(prev => [...prev, newMessage]);
-  };
+  }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!chatInput.trim()) return;
+  if (!chatInput.trim() || isLoading) return;
 
-    const userMessage = chatInput;
-    setChatInput('');
-    
-    // Add user message immediately
-    addMessage('user', userMessage);
-    
-    // Show loading state
-    setIsWaitingResponse(true);
+  const currentMessage = chatInput.trim(); // capture current value
 
-    try {
-      const response = await fetch(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage })
-      });
-
-      const data = await response.json();
-      
-      setIsWaitingResponse(false);
-      
-      if (data.response) {
-        addMessage('ai', data.response);
-      }
-      
-      if (!data.model_ready) {
-        setModelLoaded(false);
-      }
-    } catch (error) {
-      setIsWaitingResponse(false);
-      addMessage('ai', 'Sorry, I could not connect to the AI backend. Please make sure the server is running.');
-      console.error('Chat error:', error);
-    }
+  const userMessage = {
+    id: messages.length + 1,
+    type: 'user',
+    content: currentMessage,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   };
+  
+  setMessages(prev => [...prev, userMessage]);
+  setChatInput(''); // safe to clear now
+  setIsLoading(true);
+
+  try {
+    const response = await fetch('http://localhost:5000/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: currentMessage }) // use the captured value
+    });
+
+    const data = await response.json();
+
+    const aiMessage = {
+      id: messages.length + 2,
+      type: 'ai',
+      content: data.response || 'Sorry, I encountered an error.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, aiMessage]);
+  } catch (error) {
+    const errorMessage = {
+      id: messages.length + 2,
+      type: 'ai',
+      content: 'Sorry, I cannot connect to the backend. Make sure the Flask server is running on port 5000.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setMessages(prev => [...prev, errorMessage]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -200,14 +195,6 @@ const FloatingChatbot = () => {
     ? { top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }
     : { left: `${position.x}px`, top: `${position.y}px`, width: `${size.width}px`, height: `${size.height}px` };
 
-  const getStatusIndicator = () => {
-    if (isLoading) return { color: 'bg-yellow-500', text: 'Loading AI...' };
-    if (modelLoaded) return { color: 'bg-green-500', text: 'Online' };
-    return { color: 'bg-red-500', text: 'Offline' };
-  };
-
-  const status = getStatusIndicator();
-
   return (
     <>
       {/* Floating Button */}
@@ -217,9 +204,6 @@ const FloatingChatbot = () => {
           className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110 flex items-center justify-center z-50"
         >
           <MessageSquare className="w-6 h-6" />
-          {modelLoaded && (
-            <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
-          )}
         </button>
       )}
 
@@ -233,18 +217,47 @@ const FloatingChatbot = () => {
           {/* Resize Handles */}
           {!isMaximized && (
             <>
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top')} className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')} className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'left')} className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'right')} className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')} className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')} className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')} className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')} className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize" />
+              {/* Top */}
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'top')}
+                className="absolute top-0 left-2 right-2 h-1 cursor-n-resize"
+              />
+              {/* Bottom */}
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')}
+                className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize"
+              />
+              {/* Left */}
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'left')}
+                className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize"
+              />
+              {/* Right */}
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'right')}
+                className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize"
+              />
+              {/* Corners */}
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')}
+                className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize"
+              />
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')}
+                className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize"
+              />
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')}
+                className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize"
+              />
+              <div
+                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')}
+                className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize"
+              />
             </>
           )}
 
-          {/* Header */}
+          {/* Header - Draggable */}
           <div
             onMouseDown={handleMouseDown}
             className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg cursor-move flex items-center justify-between select-none"
@@ -252,22 +265,31 @@ const FloatingChatbot = () => {
             <div className="flex items-center space-x-2">
               <MessageSquare className="w-5 h-5" />
               <span className="font-semibold">AI Assistant</span>
-              <div className="flex items-center space-x-1 ml-2">
-                <span className={`w-2 h-2 ${status.color} rounded-full`}></span>
-                <span className="text-xs opacity-90">{status.text}</span>
-              </div>
+              {!backendStatus.online && (
+                <span className="text-xs bg-red-500 px-2 py-0.5 rounded">Offline</span>
+              )}
             </div>
             <div className="flex items-center space-x-2">
-              {isMaximized ? (
-                <button onClick={toggleMaximize} className="p-1 hover:bg-blue-600 rounded transition-colors">
+              {isMaximized && (
+                <button
+                  onClick={toggleMaximize}
+                  className="p-1 hover:bg-blue-600 rounded transition-colors"
+                >
                   <Minimize2 className="w-4 h-4" />
                 </button>
-              ) : (
-                <button onClick={toggleMaximize} className="p-1 hover:bg-blue-600 rounded transition-colors">
+              )}
+              {!isMaximized && (
+                <button
+                  onClick={toggleMaximize}
+                  className="p-1 hover:bg-blue-600 rounded transition-colors"
+                >
                   <Maximize2 className="w-4 h-4" />
                 </button>
               )}
-              <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-blue-600 rounded transition-colors">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1 hover:bg-blue-600 rounded transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -275,14 +297,6 @@ const FloatingChatbot = () => {
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-            {messages.length === 0 && (
-              <div className="text-center text-gray-500 mt-8">
-                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Start a conversation with the AI assistant</p>
-                {isLoading && <p className="text-sm mt-2">Loading AI model...</p>}
-              </div>
-            )}
-            
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex items-start space-x-2 max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -290,7 +304,11 @@ const FloatingChatbot = () => {
                     message.type === 'ai' ? 'bg-gray-900 text-white' : 'bg-blue-600 text-white'
                   }`}>
                     {message.type === 'ai' ? (
-                      <MessageSquare className="w-4 h-4" />
+                      <img 
+                        src={clankyIcon} 
+                        alt="Clanky AI" 
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
                     ) : (
                       <div className="w-4 h-4 rounded-full bg-white"></div>
                     )}
@@ -302,7 +320,7 @@ const FloatingChatbot = () => {
                         ? 'bg-gray-100 text-gray-900' 
                         : 'bg-blue-600 text-white'
                     }`}>
-                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     </div>
                     <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
                   </div>
@@ -310,15 +328,29 @@ const FloatingChatbot = () => {
               </div>
             ))}
             
-            {isWaitingResponse && (
+            {/* Loading Indicator */}
+            {isLoading && (
               <div className="flex justify-start">
-                <div className="flex items-center space-x-2 bg-gray-100 rounded-2xl px-4 py-2">
-                  <Loader className="w-4 h-4 animate-spin text-gray-600" />
-                  <span className="text-sm text-gray-600">AI is thinking...</span>
+                <div className="flex items-start space-x-2 max-w-[80%]">
+                  <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
+                    <img 
+                      src={clankyIcon} 
+                      alt="Clanky AI" 
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <div className="rounded-2xl px-4 py-3 bg-gray-100">
+                      <div className="flex space-x-2">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-            
             <div ref={messagesEndRef} />
           </div>
 
@@ -330,20 +362,20 @@ const FloatingChatbot = () => {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={modelLoaded ? "Ask me anything..." : "Waiting for AI model..."}
-                disabled={!modelLoaded || isWaitingResponse}
+                placeholder={!backendStatus.online ? "Backend offline..." : "Ask me anything..."}
+                disabled={isLoading || !backendStatus.online}
                 className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
                 <button 
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                  disabled={!modelLoaded}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                  disabled={isLoading || !backendStatus.online}
                 >
                   <Mic className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleSendMessage}
-                  disabled={!chatInput.trim() || !modelLoaded || isWaitingResponse}
+                  disabled={!chatInput.trim() || isLoading || !backendStatus.online}
                   className="p-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
