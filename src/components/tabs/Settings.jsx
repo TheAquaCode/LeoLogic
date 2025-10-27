@@ -272,14 +272,16 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   ];
 
   return (
-    <div 
-      className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
-      style={{
+    <div
+  className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
+    chatbotMaximized ? 'pr-[500px]' : ''
+  }`}
+  style={{
         // UPDATED: Adjust width when chatbot is maximized
         marginRight: chatbotMaximized ? '480px' : '0'
       }}
     >
-      <div className="border-b px-6" style={{ 
+      <div className="border-b px-6 max-w-7xl mx-auto w-full" style={{
         backgroundColor: 'var(--theme-bg-secondary)', 
         borderColor: 'var(--theme-border-primary)' 
       }}>
@@ -309,9 +311,10 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
       <div className="flex-1 p-6 overflow-auto">
         {activeTab === 'general' ? (
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="rounded-lg border p-6" style={{ 
+          <div className="flex-1 p-6 overflow-auto">
+  <div className="max-w-7xl mx-auto w-full space-y-6">
+    <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-2'}`}
+     style={{ 
                 backgroundColor: 'var(--theme-bg-secondary)', 
                 borderColor: 'var(--theme-border-primary)' 
               }}>
@@ -377,7 +380,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                 <Settings className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
                 <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Confidence Thresholds</h3>
               </div>
-              <div className="grid grid-cols-4 gap-6">
+              <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
                 <Slider
                   label="Text"
                   value={settings.confidenceThresholds.text}
@@ -453,7 +456,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
           </div>
         ) : (
           <div className="max-w-6xl mx-auto space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-3'}`}>
               <div className="rounded-lg border p-6" style={{ 
                 backgroundColor: 'var(--theme-bg-secondary)', 
                 borderColor: 'var(--theme-border-primary)' 
