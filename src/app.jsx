@@ -17,13 +17,20 @@ const App = () => {
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [timeFilter, setTimeFilter] = useState('All Time');
   const [settings, setSettings] = useState(defaultSettings);
+  const [watchedFolders, setWatchedFolders] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Dashboard':
         return <Dashboard />;
       case 'File Explorer':
-        return <FileExplorer />;
+        return <FileExplorer 
+          watchedFolders={watchedFolders}
+          setWatchedFolders={setWatchedFolders}
+          categories={categories}
+          setCategories={setCategories}
+        />;
       case 'History':
         return <History />;
       case 'AI Assistant':

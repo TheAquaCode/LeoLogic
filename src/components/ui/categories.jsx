@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Tag, Plus, MoreHorizontal, Folder, Trash2, X } from 'lucide-react';
+import { Tag, Plus, MoreHorizontal, Folder, Trash2, X, Edit2 } from 'lucide-react';
 
-const Categories = ({ categories = [], onAddCategory, onDelete }) => {
+const Categories = ({ categories = [], onAddCategory, onDelete, onEditPath }) => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [categoryPath, setCategoryPath] = useState('');
@@ -20,7 +20,7 @@ const Categories = ({ categories = [], onAddCategory, onDelete }) => {
     }
   };
 
-  const handleSelectFolder = async () => {
+  const handleSelectFolder = async (categoryId) => {
     const selectFolderAPI = window.electron?.selectFolder || 
                            window.electronAPI?.selectFolder || 
                            window.api?.selectFolder;
@@ -29,7 +29,13 @@ const Categories = ({ categories = [], onAddCategory, onDelete }) => {
       try {
         const folderPath = await selectFolderAPI();
         if (folderPath) {
-          setCategoryPath(folderPath);
+          if (categoryId) {
+            // Editing existing category
+            onEditPath(categoryId);
+          } else {
+            // Adding new category
+            setCategoryPath(folderPath);
+          }
         }
       } catch (error) {
         console.error('Error selecting folder:', error);
@@ -91,6 +97,16 @@ const Categories = ({ categories = [], onAddCategory, onDelete }) => {
                         onClick={() => setOpenMenuId(null)}
                       />
                       <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                        <button
+                          onClick={() => {
+                            handleSelectFolder(category.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span>Edit Path</span>
+                        </button>
                         <button
                           onClick={() => {
                             onDelete(category.id);
@@ -181,7 +197,7 @@ const Categories = ({ categories = [], onAddCategory, onDelete }) => {
                   />
                   <button
                     type="button"
-                    onClick={handleSelectFolder}
+                    onClick={() => handleSelectFolder(null)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     Browse

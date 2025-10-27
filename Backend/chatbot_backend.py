@@ -48,7 +48,7 @@ class MistralChatbot:
 
             # Call Mistral API (non-streaming for simplicity)
             chat_response = client.chat.complete(
-                model="mistral-large-latest",
+                model="mistral-large-2411",
                 messages=messages,
                 temperature=0.7,
                 max_tokens=2048,
