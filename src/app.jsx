@@ -17,13 +17,12 @@ const App = () => {
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [timeFilter, setTimeFilter] = useState('All Time');
   const [settings, setSettings] = useState(defaultSettings);
-  // NEW: Add state to track if chat is maximized
   const [isChatMaximized, setIsChatMaximized] = useState(false);
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Dashboard':
-        return <Dashboard />;
+        return <Dashboard isChatMaximized={isChatMaximized} />;  // Pass the prop
       case 'File Explorer':
         return <FileExplorer />;
       case 'History':
@@ -46,7 +45,7 @@ const App = () => {
         setActiveTab={setActiveTab}
         autoOrganize={autoOrganize}
         setAutoOrganize={setAutoOrganize}
-        isCollapsed={isChatMaximized}  // NEW: Pass isCollapsed prop
+        isCollapsed={isChatMaximized}
       />
 
       {/* Main Content */}
@@ -63,7 +62,6 @@ const App = () => {
         {renderTabContent()}
       </div>
       
-      {/* NEW: Pass onMaximizeChange callback */}
       <FloatingChatbot onMaximizeChange={setIsChatMaximized} />
     </div>
   );

@@ -1,9 +1,14 @@
 import React from "react";
 import { Activity } from "lucide-react";
 
-const Dashboard = () => {
+const Dashboard = ({ isChatMaximized }) => {
   return (
-    <div className="flex-1 overflow-auto p-8 space-y-10" style={{ backgroundColor: 'var(--theme-bg-primary)' }}>
+    <div 
+      className={`flex-1 overflow-auto p-8 space-y-10 transition-all duration-300 ${
+        isChatMaximized ? 'pr-[500px]' : ''
+      }`} 
+      style={{ backgroundColor: 'var(--theme-bg-primary)' }}
+    >
       {/* Dashboard Section */}
       <div>
         <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--theme-text-primary)' }}>Dashboard</h1>
@@ -35,8 +40,12 @@ const Dashboard = () => {
             <span>73%</span>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Stats - Responsive grid */}
+          <div className={`grid gap-4 ${
+            isChatMaximized 
+              ? 'grid-cols-2' 
+              : 'grid-cols-2 md:grid-cols-4'
+          }`}>
             {[
               {
                 title: "Total Files",
@@ -68,7 +77,9 @@ const Dashboard = () => {
                 }}
               >
                 <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{stat.title}</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: 'var(--theme-text-primary)' }}>
+                <p className={`font-bold mt-1 ${
+                  isChatMaximized ? 'text-xl' : 'text-2xl'
+                }`} style={{ color: 'var(--theme-text-primary)' }}>
                   {stat.value}
                 </p>
                 <p
@@ -107,7 +118,9 @@ const Dashboard = () => {
                 CPU Usage
               </span>
             </div>
-            <span className="text-2xl font-semibold" style={{ color: 'var(--theme-text-primary)' }}>45%</span>
+            <span className={`font-semibold ${
+              isChatMaximized ? 'text-xl' : 'text-2xl'
+            }`} style={{ color: 'var(--theme-text-primary)' }}>45%</span>
           </div>
           <div className="w-full h-2 rounded-full mb-6 overflow-hidden" style={{
             backgroundColor: 'var(--theme-border-primary)'
@@ -118,7 +131,11 @@ const Dashboard = () => {
             }}></div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm" style={{ color: 'var(--theme-text-secondary)' }}>
+          <div className={`grid gap-6 text-sm ${
+            isChatMaximized 
+              ? 'grid-cols-1' 
+              : 'grid-cols-2 md:grid-cols-3'
+          }`} style={{ color: 'var(--theme-text-secondary)' }}>
             <div>
               <p className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>Processing Speed</p>
               <p>127 files/min</p>
@@ -162,10 +179,12 @@ const Dashboard = () => {
               color: "bg-gray-400",
             },
           ].map((task, i) => (
-            <div key={i} className="mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium" style={{ color: 'var(--theme-text-primary)' }}>{task.name}</span>
+            <div key={i} className="mb-6 last:mb-0">
+              <div className="flex justify-between items-center mb-2 gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-medium ${
+                    isChatMaximized ? 'text-sm' : 'text-base'
+                  }`} style={{ color: 'var(--theme-text-primary)' }}>{task.name}</span>
                   <span
                     className={`text-xs px-2 py-1 rounded-full ${
                       task.status === "Running"
@@ -178,13 +197,13 @@ const Dashboard = () => {
                     {task.status}
                   </span>
                 </div>
-                <span className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>{task.details}</span>
+                <span className="text-sm whitespace-nowrap" style={{ color: 'var(--theme-text-secondary)' }}>{task.details}</span>
               </div>
               <div className="relative w-full h-2 rounded-full overflow-hidden" style={{
                 backgroundColor: 'var(--theme-border-primary)'
               }}>
                 <div
-                  className={`${task.color} h-full rounded-full`}
+                  className={`${task.color} h-full rounded-full transition-all`}
                   style={{ width: `${task.progress}%` }}
                 ></div>
               </div>
