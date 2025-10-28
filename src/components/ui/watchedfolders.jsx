@@ -1,8 +1,18 @@
+// src/components/ui/watchedfolders.jsx - Updated with process folder feature
 import React, { useState } from 'react';
-import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2 } from 'lucide-react';
+import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2, Zap, Loader } from 'lucide-react';
 import { getStatusColor } from '../../utils/helpers';
 
-const WatchedFolders = ({ folders = [], onAddFolder, onToggleStatus, onEditPath, onDelete }) => {
+const WatchedFolders = ({ 
+  folders = [], 
+  onAddFolder, 
+  onToggleStatus, 
+  onEditPath, 
+  onDelete,
+  onProcessFolder,
+  processingFolder,
+  backendOnline = false
+}) => {
   const [openMenuId, setOpenMenuId] = useState(null);
 
   return (
@@ -31,21 +41,30 @@ const WatchedFolders = ({ folders = [], onAddFolder, onToggleStatus, onEditPath,
           </div>
         ) : (
           folders.map((folder) => (
-            <div key={folder.id} className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                    <Folder className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">{folder.name}</h4>
-                    <p className="text-sm text-gray-500 truncate max-w-xs">{folder.path}</p>
+            <div key={folder.id} className="bg-white rounded-lg border border-gray-200 p-4 relative">
+              {processingFolder === folder.id && (
+                <div className="absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <Loader className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-blue-900">Processing files...</p>
                   </div>
                 </div>
-                <div className="relative">
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
+                    <Folder className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium text-gray-900 truncate">{folder.name}</h4>
+                    <p className="text-sm text-gray-500 truncate">{folder.path}</p>
+                  </div>
+                </div>
+                <div className="relative flex-shrink-0 ml-2">
                   <button 
                     onClick={() => setOpenMenuId(openMenuId === folder.id ? null : folder.id)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 p-1"
                   >
                     <MoreHorizontal className="w-5 h-5" />
                   </button>
@@ -56,7 +75,20 @@ const WatchedFolders = ({ folders = [], onAddFolder, onToggleStatus, onEditPath,
                         className="fixed inset-0 z-10" 
                         onClick={() => setOpenMenuId(null)}
                       />
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                        {backendOnline && (
+                          <button
+                            onClick={() => {
+                              onProcessFolder(folder.id);
+                              setOpenMenuId(null);
+                            }}
+                            disabled={processingFolder === folder.id}
+                            className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center space-x-2 disabled:opacity-50"
+                          >
+                            <Zap className="w-4 h-4" />
+                            <span>Process Existing Files</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             onToggleStatus(folder.id);
