@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Maximize2, Minimize2, Send, Mic } from 'lucide-react';
+import { MessageSquare, X, Maximize2, Minimize2, Send, Mic, ChevronRight } from 'lucide-react';
 import clankyIcon from '../../assets/Clanky_icon.png';
 
-const FloatingChatbot = () => {
+const FloatingChatbot = ({ onMaximizeChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState([
@@ -45,6 +45,13 @@ const FloatingChatbot = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // NEW: Notify parent component when maximize state changes
+  useEffect(() => {
+    if (onMaximizeChange) {
+      onMaximizeChange(isMaximized);
+    }
+  }, [isMaximized, onMaximizeChange]);
 
   const handleSendMessage = async () => {
   if (!chatInput.trim() || isLoading) return;
@@ -192,7 +199,7 @@ const FloatingChatbot = () => {
   };
 
   const chatStyle = isMaximized
-    ? { top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }
+    ? { top: 0, right: 0, bottom: 0, width: '480px', height: '100vh', borderRadius: 0 }
     : { left: `${position.x}px`, top: `${position.y}px`, width: `${size.width}px`, height: `${size.height}px` };
 
   return (
@@ -211,7 +218,7 @@ const FloatingChatbot = () => {
       {isOpen && (
         <div
           ref={chatRef}
-          className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-50"
+          className={`fixed bg-white shadow-2xl border-l border-gray-200 flex flex-col z-50 ${isMaximized ? '' : 'rounded-lg border'}`}
           style={chatStyle}
         >
           {/* Resize Handles */}
@@ -260,69 +267,56 @@ const FloatingChatbot = () => {
           {/* Header - Draggable */}
           <div
             onMouseDown={handleMouseDown}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg cursor-move flex items-center justify-between select-none"
+            className={`bg-black text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
           >
             <div className="flex items-center space-x-2">
               <MessageSquare className="w-5 h-5" />
               <span className="font-semibold">AI Assistant</span>
-              {!backendStatus.online && (
-                <span className="text-xs bg-red-500 px-2 py-0.5 rounded">Offline</span>
-              )}
             </div>
-            <div className="flex items-center space-x-2">
-              {isMaximized && (
-                <button
-                  onClick={toggleMaximize}
-                  className="p-1 hover:bg-blue-600 rounded transition-colors"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </button>
-              )}
-              {!isMaximized && (
-                <button
-                  onClick={toggleMaximize}
-                  className="p-1 hover:bg-blue-600 rounded transition-colors"
-                >
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={toggleMaximize}
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
+              >
+                {isMaximized ? (
+                  <ChevronRight className="w-5 h-5" />
+                ) : (
                   <Maximize2 className="w-4 h-4" />
-                </button>
-              )}
+                )}
+              </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-blue-600 rounded transition-colors"
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 bg-white">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex items-start space-x-2 max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                <div className={`flex items-start space-x-3 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
                     message.type === 'ai' ? 'bg-gray-900 text-white' : 'bg-blue-600 text-white'
                   }`}>
                     {message.type === 'ai' ? (
-                      <img 
-                        src={clankyIcon} 
-                        alt="Clanky AI" 
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
+                      <MessageSquare className="w-5 h-5" />
                     ) : (
-                      <div className="w-4 h-4 rounded-full bg-white"></div>
+                      <div className="w-5 h-5 rounded-full bg-white"></div>
                     )}
                   </div>
                   
                   <div className={`flex flex-col ${message.type === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div className={`rounded-2xl px-4 py-2 ${
+                    <div className={`rounded-2xl px-4 py-3 ${
                       message.type === 'ai' 
                         ? 'bg-gray-100 text-gray-900' 
                         : 'bg-blue-600 text-white'
                     }`}>
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     </div>
-                    <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
+                    <span className="text-xs text-gray-500 mt-1.5">{message.timestamp}</span>
                   </div>
                 </div>
               </div>
@@ -355,22 +349,18 @@ const FloatingChatbot = () => {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-gray-200 p-4 flex-shrink-0">
+          <div className="border-t border-gray-200 p-4 flex-shrink-0 bg-white">
             <div className="relative">
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={!backendStatus.online ? "Backend offline..." : "Ask me anything..."}
-                disabled={isLoading || !backendStatus.online}
-                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                placeholder="Ask me anything..."
+                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-                <button 
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-                  disabled={isLoading || !backendStatus.online}
-                >
+                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
                   <Mic className="w-4 h-4" />
                 </button>
                 <button

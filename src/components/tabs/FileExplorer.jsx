@@ -21,7 +21,7 @@ const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) 
   </button>
 );
 
-const FileExplorer = () => {
+const FileExplorer = ({ isChatMaximized }) => {
   const [selectedSort, setSelectedSort] = useState(null);
   const [isQuickSortExpanded, setIsQuickSortExpanded] = useState(() => {
     return loadFromStorage('QUICK_SORT_EXPANDED') ?? true;
@@ -327,7 +327,11 @@ const FileExplorer = () => {
   };
 
   return (
-    <div className="flex-1 p-6 overflow-auto">
+    <div 
+      className={`flex-1 p-6 overflow-auto transition-all duration-300 ${
+        isChatMaximized ? 'pr-[500px]' : ''
+      }`}
+    >
       {/* Error Message */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -393,7 +397,9 @@ const FileExplorer = () => {
       </div>
 
       {/* File Explorer Grid */}
-      <div className="grid grid-cols-2 gap-6 h-full">
+      <div className={`grid gap-6 h-full ${
+        isChatMaximized ? 'grid-cols-1' : 'grid-cols-2'
+      }`}>
         <WatchedFolders 
           folders={watchedFolders}
           onAddFolder={handleAddWatchedFolder}

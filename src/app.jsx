@@ -17,30 +17,24 @@ const App = () => {
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [timeFilter, setTimeFilter] = useState('All Time');
   const [settings, setSettings] = useState(defaultSettings);
-  const [watchedFolders, setWatchedFolders] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [isChatMaximized, setIsChatMaximized] = useState(false);
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Dashboard':
-        return <Dashboard />;
+        return <Dashboard isChatMaximized={isChatMaximized} />;
       case 'File Explorer':
-        return <FileExplorer 
-          watchedFolders={watchedFolders}
-          setWatchedFolders={setWatchedFolders}
-          categories={categories}
-          setCategories={setCategories}
-        />;
+        return <FileExplorer isChatMaximized={isChatMaximized} />;
       case 'History':
-        return <History />;
+        return <History isChatMaximized={isChatMaximized} />;
       case 'AI Assistant':
-        return <AIAssistant />;
+        return <AIAssistant isChatMaximized={isChatMaximized} />;
       case 'Upload & Scan':
-        return <UploadScan />;
+        return <UploadScan isChatMaximized={isChatMaximized} />;
       case 'Settings':
-        return <Settings />;
+        return <Settings isChatMaximized={isChatMaximized} />;
       default:
-        return <ComingSoon />;
+        return <ComingSoon isChatMaximized={isChatMaximized} />;
     }
   };
 
@@ -51,6 +45,7 @@ const App = () => {
         setActiveTab={setActiveTab}
         autoOrganize={autoOrganize}
         setAutoOrganize={setAutoOrganize}
+        isCollapsed={isChatMaximized}
       />
 
       {/* Main Content */}
@@ -66,8 +61,8 @@ const App = () => {
         {/* Content */}
         {renderTabContent()}
       </div>
-      <FloatingChatbot />
-
+      
+      <FloatingChatbot onMaximizeChange={setIsChatMaximized} />
     </div>
   );
 };
