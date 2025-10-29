@@ -1,6 +1,6 @@
-// src/components/tabs/FileExplorer.jsx - Enhanced with backend integration
+// src/components/tabs/FileExplorer.jsx - Enhanced with search and rename
 import React, { useState, useEffect } from 'react';
-import { Zap, Image, Calendar, HardDrive, Copy, ChevronDown, AlertCircle } from 'lucide-react';
+import { Zap, Image, Calendar, HardDrive, Copy, ChevronDown, AlertCircle, Search } from 'lucide-react';
 import WatchedFolders from '../ui/watchedfolders';
 import Categories from '../ui/categories';
 import { loadFromStorage, saveToStorage } from '../../utils/storage';
@@ -33,6 +33,9 @@ const FileExplorer = ({ isChatMaximized }) => {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
   const [processingFolder, setProcessingFolder] = useState(null);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Save expanded state whenever it changes
   useEffect(() => {
@@ -65,21 +68,19 @@ const FileExplorer = ({ isChatMaximized }) => {
           apiService.getCategories()
         ]);
         
-        setWatchedFolders(foldersData || []);
-        setCategories(categoriesData || []);
+        setWatchedFolders(Array.isArray(foldersData) ? foldersData : []);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         
       } catch (err) {
         console.error('Error loading data:', err);
-        // Load from localStorage as fallback
-        const savedFolders = loadFromStorage('watched_folders', []);
-        const savedCategories = loadFromStorage('categories', []);
+        const savedFolders = loadFromStorage('watched_folders') || [];
+        const savedCategories = loadFromStorage('categories') || [];
         setWatchedFolders(savedFolders);
         setCategories(savedCategories);
       }
     } else {
-      // Load from localStorage
-      const savedFolders = loadFromStorage('watched_folders', []);
-      const savedCategories = loadFromStorage('categories', []);
+      const savedFolders = loadFromStorage('watched_folders') || [];
+      const savedCategories = loadFromStorage('categories') || [];
       setWatchedFolders(savedFolders);
       setCategories(savedCategories);
     }
@@ -97,6 +98,16 @@ const FileExplorer = ({ isChatMaximized }) => {
       console.log('Starting quick sort:', selectedSort);
       alert(`Quick sort "${selectedSort}" feature coming soon!`);
     }
+  };
+
+  // Filter function
+  const filterItems = (items, query) => {
+    if (!query.trim()) return items;
+    const lowerQuery = query.toLowerCase();
+    return items.filter(item => 
+      item.name?.toLowerCase().includes(lowerQuery) ||
+      item.path?.toLowerCase().includes(lowerQuery)
+    );
   };
 
   // Watched Folders handlers
@@ -117,15 +128,16 @@ const FileExplorer = ({ isChatMaximized }) => {
       const folderName = folderPath.split('/').pop() || folderPath.split('\\').pop();
       
       if (backendStatus === 'online') {
-        // Add via backend
         const result = await apiService.addWatchedFolder({
           name: folderName,
           path: folderPath
         });
         
-        setWatchedFolders([...watchedFolders, result.folder]);
+        const newFolder = result.folder || result;
+        const updatedFolders = [...watchedFolders, newFolder];
+        setWatchedFolders(updatedFolders);
+        saveToStorage('watched_folders', updatedFolders);
       } else {
-        // Fallback: local only
         const newFolder = {
           id: Date.now(),
           name: folderName,
@@ -134,8 +146,9 @@ const FileExplorer = ({ isChatMaximized }) => {
           lastActivity: 'Just now',
           status: 'Active'
         };
-        setWatchedFolders([...watchedFolders, newFolder]);
-        saveToStorage('watched_folders', [...watchedFolders, newFolder]);
+        const updatedFolders = [...watchedFolders, newFolder];
+        setWatchedFolders(updatedFolders);
+        saveToStorage('watched_folders', updatedFolders);
       }
     } catch (error) {
       console.error('Error adding folder:', error);
@@ -147,11 +160,13 @@ const FileExplorer = ({ isChatMaximized }) => {
     try {
       if (backendStatus === 'online') {
         const result = await apiService.toggleFolderStatus(folderId);
-        setWatchedFolders(watchedFolders.map(f => 
-          f.id === folderId ? result.folder : f
-        ));
+        const updatedFolder = result.folder || result;
+        const updatedFolders = watchedFolders.map(f => 
+          f.id === folderId ? updatedFolder : f
+        );
+        setWatchedFolders(updatedFolders);
+        saveToStorage('watched_folders', updatedFolders);
       } else {
-        // Local fallback
         const updated = watchedFolders.map(folder => 
           folder.id === folderId 
             ? { ...folder, status: folder.status === 'Active' ? 'Paused' : 'Active' }
@@ -189,10 +204,7 @@ const FileExplorer = ({ isChatMaximized }) => {
       );
       
       setWatchedFolders(updated);
-      
-      if (backendStatus === 'offline') {
-        saveToStorage('watched_folders', updated);
-      }
+      saveToStorage('watched_folders', updated);
     } catch (error) {
       console.error('Error editing folder:', error);
     }
@@ -210,10 +222,7 @@ const FileExplorer = ({ isChatMaximized }) => {
       
       const updated = watchedFolders.filter(folder => folder.id !== folderId);
       setWatchedFolders(updated);
-      
-      if (backendStatus === 'offline') {
-        saveToStorage('watched_folders', updated);
-      }
+      saveToStorage('watched_folders', updated);
     } catch (error) {
       console.error('Error deleting folder:', error);
       alert('Error: ' + error.message);
@@ -249,9 +258,11 @@ const FileExplorer = ({ isChatMaximized }) => {
     try {
       if (backendStatus === 'online') {
         const result = await apiService.addCategory(categoryData);
-        setCategories([...categories, result.category]);
+        const newCategory = result.category || result;
+        const updatedCategories = [...categories, newCategory];
+        setCategories(updatedCategories);
+        saveToStorage('categories', updatedCategories);
       } else {
-        // Local fallback
         const newCategory = {
           id: Date.now(),
           name: categoryData.name,
@@ -260,11 +271,32 @@ const FileExplorer = ({ isChatMaximized }) => {
           rules: 0,
           color: 'bg-blue-500'
         };
-        setCategories([...categories, newCategory]);
-        saveToStorage('categories', [...categories, newCategory]);
+        const updatedCategories = [...categories, newCategory];
+        setCategories(updatedCategories);
+        saveToStorage('categories', updatedCategories);
       }
     } catch (error) {
       console.error('Error adding category:', error);
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const handleRenameCategory = async (categoryId, newName) => {
+    try {
+      if (backendStatus === 'online') {
+        await apiService.updateCategory(categoryId, { name: newName });
+      }
+      
+      const updated = categories.map(category =>
+        category.id === categoryId
+          ? { ...category, name: newName }
+          : category
+      );
+      
+      setCategories(updated);
+      saveToStorage('categories', updated);
+    } catch (error) {
+      console.error('Error renaming category:', error);
       alert('Error: ' + error.message);
     }
   };
@@ -294,10 +326,7 @@ const FileExplorer = ({ isChatMaximized }) => {
       );
       
       setCategories(updated);
-      
-      if (backendStatus === 'offline') {
-        saveToStorage('categories', updated);
-      }
+      saveToStorage('categories', updated);
     } catch (error) {
       console.error('Error editing category:', error);
       alert('Error: ' + error.message);
@@ -316,106 +345,124 @@ const FileExplorer = ({ isChatMaximized }) => {
       
       const updated = categories.filter(category => category.id !== categoryId);
       setCategories(updated);
-      
-      if (backendStatus === 'offline') {
-        saveToStorage('categories', updated);
-      }
+      saveToStorage('categories', updated);
     } catch (error) {
       console.error('Error deleting category:', error);
       alert('Error: ' + error.message);
     }
   };
 
+  // Filtered data
+  const filteredFolders = filterItems(watchedFolders, searchQuery);
+  const filteredCategories = filterItems(categories, searchQuery);
+
   return (
     <div 
-      className={`flex-1 p-6 overflow-auto transition-all duration-300 ${
+      className={`flex-1 overflow-auto transition-all duration-300 ${
         isChatMaximized ? 'pr-[500px]' : ''
       }`}
     >
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-red-900">Error</p>
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Sort Section */}
-      <div className="mb-8">
-        <button 
-          onClick={() => setIsQuickSortExpanded(!isQuickSortExpanded)}
-          className="flex items-center gap-2 mb-2 w-full group"
-        >
-          <div className="flex items-center gap-2">
-            <Zap className="w-6 h-6 text-gray-700" />
-            <h2 className="text-2xl font-semibold text-gray-900">Quick Sort</h2>
-          </div>
-          <ChevronDown 
-            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ease-in-out ml-2 ${
-              isQuickSortExpanded ? 'transform rotate-180' : ''
-            }`}
+      {/* Search Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
+        <div className="relative max-w-2xl">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search folders and categories..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
-        </button>
-        
-        <div className={`transition-all duration-200 ease-in-out overflow-hidden ${
-          isQuickSortExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-        }`}>
-          <p className="text-gray-600 mb-6">
-            Organize files quickly with AI-powered actions
-          </p>
-          
-          <div className="grid grid-cols-4 gap-4 mb-4">
-            {sortOptions.map((option) => (
-              <QuickSortCard
-                key={option.id}
-                icon={option.icon}
-                title={option.title}
-                description={option.description}
-                isSelected={selectedSort === option.id}
-                onClick={() => setSelectedSort(option.id)}
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={handleStart}
-            disabled={!selectedSort}
-            className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
-              selectedSort
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            Start
-          </button>
         </div>
       </div>
 
-      {/* File Explorer Grid */}
-      <div className={`grid gap-6 h-full ${
-        isChatMaximized ? 'grid-cols-1' : 'grid-cols-2'
-      }`}>
-        <WatchedFolders 
-          folders={watchedFolders}
-          onAddFolder={handleAddWatchedFolder}
-          onToggleStatus={handleToggleFolderStatus}
-          onEditPath={handleEditFolderPath}
-          onDelete={handleDeleteFolder}
-          onProcessFolder={handleProcessFolder}
-          processingFolder={processingFolder}
-          backendOnline={backendStatus === 'online'}
-        />
-        <Categories 
-          categories={categories}
-          onAddCategory={handleAddCategory}
-          onEditPath={handleEditCategoryPath}
-          onDelete={handleDeleteCategory}
-        />
+      <div className="p-6">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-900">Error</p>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Sort Section */}
+        <div className="mb-8">
+          <button 
+            onClick={() => setIsQuickSortExpanded(!isQuickSortExpanded)}
+            className="flex items-center gap-2 mb-2 w-full group"
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="w-6 h-6 text-gray-700" />
+              <h2 className="text-2xl font-semibold text-gray-900">Quick Sort</h2>
+            </div>
+            <ChevronDown 
+              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ease-in-out ml-2 ${
+                isQuickSortExpanded ? 'transform rotate-180' : ''
+              }`}
+            />
+          </button>
+          
+          <div className={`transition-all duration-200 ease-in-out overflow-hidden ${
+            isQuickSortExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+          }`}>
+            <p className="text-gray-600 mb-6">
+              Organize files quickly with AI-powered actions
+            </p>
+            
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              {sortOptions.map((option) => (
+                <QuickSortCard
+                  key={option.id}
+                  icon={option.icon}
+                  title={option.title}
+                  description={option.description}
+                  isSelected={selectedSort === option.id}
+                  onClick={() => setSelectedSort(option.id)}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={handleStart}
+              disabled={!selectedSort}
+              className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
+                selectedSort
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Start
+            </button>
+          </div>
+        </div>
+
+        {/* File Explorer Grid */}
+        <div className={`grid gap-6 h-full ${
+          isChatMaximized ? 'grid-cols-1' : 'grid-cols-2'
+        }`}>
+          <WatchedFolders 
+            folders={filteredFolders}
+            onAddFolder={handleAddWatchedFolder}
+            onToggleStatus={handleToggleFolderStatus}
+            onEditPath={handleEditFolderPath}
+            onDelete={handleDeleteFolder}
+            onProcessFolder={handleProcessFolder}
+            processingFolder={processingFolder}
+            backendOnline={backendStatus === 'online'}
+          />
+          <Categories 
+            categories={filteredCategories}
+            onAddCategory={handleAddCategory}
+            onRenameCategory={handleRenameCategory}
+            onEditPath={handleEditCategoryPath}
+            onDelete={handleDeleteCategory}
+          />
+        </div>
       </div>
     </div>
   );

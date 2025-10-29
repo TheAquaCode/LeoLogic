@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const isDev = process.env.ELECTRON_IS_DEV === 'true';
 
@@ -37,6 +37,25 @@ ipcMain.handle('select-folder', async () => {
   }
   
   return result.filePaths[0];
+});
+
+// Handle opening a folder in system file explorer
+ipcMain.handle('open-folder', async (event, folderPath) => {
+  try {
+    // shell.openPath opens the folder in the default file manager
+    const result = await shell.openPath(folderPath);
+    
+    if (result) {
+      // If result is not empty string, there was an error
+      console.error('Error opening folder:', result);
+      return { success: false, error: result };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening folder:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 app.whenReady().then(createWindow);

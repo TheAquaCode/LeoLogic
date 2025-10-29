@@ -25,6 +25,9 @@ def classify_file(text: str) -> dict:
 def process_file(file_path: str, folder_id: int):
     """Process a single file: extract, classify, and move"""
     try:
+        # Import here to avoid circular import
+        from .file_history import file_history
+        
         text = extract_text_from_file(file_path)
         if not text.strip():
             print(f"⚠️ Skipping empty file: {file_path}")
@@ -45,8 +48,23 @@ def process_file(file_path: str, folder_id: int):
                 while dest_path.exists():
                     dest_path = dest_folder / f"{Path(file_path).stem}_{counter}{Path(file_path).suffix}"
                     counter += 1
+                
+                # Store original path before moving
+                original_path = str(Path(file_path).resolve())
+                
+                # Move the file
                 shutil.move(file_path, dest_path)
                 print(f"✅ Moved {file_path} -> {dest_path} (conf={confidence:.2f})")
+                
+                # Track the movement in history
+                file_history.add_movement(
+                    file_name=dest_path.name,
+                    from_path=original_path,
+                    to_path=str(dest_path),
+                    category=category['name'],
+                    confidence=confidence,
+                    detection="AI Classification"
+                )
                 
                 # Save chunks as JSON for RAG later
                 rag_path = dest_path.with_suffix(".rag.json")
@@ -69,6 +87,8 @@ def process_file(file_path: str, folder_id: int):
     
     except Exception as e:
         print(f"❌ Error processing {file_path}: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "status": "error",
             "file_name": Path(file_path).name,

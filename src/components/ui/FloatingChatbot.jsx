@@ -26,6 +26,25 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
   const chatRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // Get theme color from CSS variables
+  const getThemeColor = () => {
+    const root = getComputedStyle(document.documentElement);
+    return root.getPropertyValue('--theme-primary').trim() || '#2563eb';
+  };
+
+  const [themeColor, setThemeColor] = useState(getThemeColor());
+
+  // Update theme color when it changes
+  useEffect(() => {
+    const updateTheme = () => {
+      setThemeColor(getThemeColor());
+    };
+    
+    // Check for theme changes every second
+    const interval = setInterval(updateTheme, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Check backend health
   useEffect(() => {
     const checkHealth = async () => {
@@ -46,7 +65,6 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // NEW: Notify parent component when maximize state changes
   useEffect(() => {
     if (onMaximizeChange) {
       onMaximizeChange(isMaximized);
@@ -54,51 +72,50 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
   }, [isMaximized, onMaximizeChange]);
 
   const handleSendMessage = async () => {
-  if (!chatInput.trim() || isLoading) return;
+    if (!chatInput.trim() || isLoading) return;
 
-  const currentMessage = chatInput.trim(); // capture current value
+    const currentMessage = chatInput.trim();
 
-  const userMessage = {
-    id: messages.length + 1,
-    type: 'user',
-    content: currentMessage,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const userMessage = {
+      id: messages.length + 1,
+      type: 'user',
+      content: currentMessage,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:5000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      });
+
+      const data = await response.json();
+
+      const aiMessage = {
+        id: messages.length + 2,
+        type: 'ai',
+        content: data.response || 'Sorry, I encountered an error.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage = {
+        id: messages.length + 2,
+        type: 'ai',
+        content: 'Sorry, I cannot connect to the backend. Make sure the Flask server is running on port 5000.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
-  setMessages(prev => [...prev, userMessage]);
-  setChatInput(''); // safe to clear now
-  setIsLoading(true);
-
-  try {
-    const response = await fetch('http://localhost:5000/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: currentMessage }) // use the captured value
-    });
-
-    const data = await response.json();
-
-    const aiMessage = {
-      id: messages.length + 2,
-      type: 'ai',
-      content: data.response || 'Sorry, I encountered an error.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, aiMessage]);
-  } catch (error) {
-    const errorMessage = {
-      id: messages.length + 2,
-      type: 'ai',
-      content: 'Sorry, I cannot connect to the backend. Make sure the Flask server is running on port 5000.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -208,7 +225,8 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110 flex items-center justify-center z-50"
+          className="fixed bottom-6 right-6 w-14 h-14 text-white rounded-full shadow-lg hover:opacity-90 transition-all hover:scale-110 flex items-center justify-center z-50"
+          style={{ backgroundColor: themeColor }}
         >
           <MessageSquare className="w-6 h-6" />
         </button>
@@ -224,50 +242,22 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
           {/* Resize Handles */}
           {!isMaximized && (
             <>
-              {/* Top */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top')}
-                className="absolute top-0 left-2 right-2 h-1 cursor-n-resize"
-              />
-              {/* Bottom */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')}
-                className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize"
-              />
-              {/* Left */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'left')}
-                className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize"
-              />
-              {/* Right */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'right')}
-                className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize"
-              />
-              {/* Corners */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')}
-                className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')}
-                className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')}
-                className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')}
-                className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize"
-              />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top')} className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')} className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'left')} className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'right')} className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')} className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')} className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')} className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')} className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize" />
             </>
           )}
 
-          {/* Header - Draggable */}
+          {/* Header */}
           <div
             onMouseDown={handleMouseDown}
-            className={`bg-black text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            className={`text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            style={{ backgroundColor: themeColor }}
           >
             <div className="flex items-center space-x-2">
               <MessageSquare className="w-5 h-5" />
@@ -276,7 +266,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             <div className="flex items-center space-x-1">
               <button
                 onClick={toggleMaximize}
-                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
+                className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
               >
                 {isMaximized ? (
                   <ChevronRight className="w-5 h-5" />
@@ -286,7 +276,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
+                className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -299,10 +289,16 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex items-start space-x-3 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.type === 'ai' ? 'bg-gray-900 text-white' : 'bg-blue-600 text-white'
-                  }`}>
+                    message.type === 'ai' ? '' : 'text-white'
+                  }`}
+                  style={message.type === 'user' ? { backgroundColor: themeColor } : {}}
+                  >
                     {message.type === 'ai' ? (
-                      <MessageSquare className="w-5 h-5" />
+                      <img 
+                        src={clankyIcon} 
+                        alt="AI Assistant" 
+                        className="w-9 h-9 rounded-full object-cover"
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-white"></div>
                     )}
@@ -312,8 +308,10 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                     <div className={`rounded-2xl px-4 py-3 ${
                       message.type === 'ai' 
                         ? 'bg-gray-100 text-gray-900' 
-                        : 'bg-blue-600 text-white'
-                    }`}>
+                        : 'text-white'
+                    }`}
+                    style={message.type === 'user' ? { backgroundColor: themeColor } : {}}
+                    >
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     </div>
                     <span className="text-xs text-gray-500 mt-1.5">{message.timestamp}</span>
@@ -326,13 +324,11 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="flex items-start space-x-2 max-w-[80%]">
-                  <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <img 
-                      src={clankyIcon} 
-                      alt="Clanky AI" 
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  </div>
+                  <img 
+                    src={clankyIcon} 
+                    alt="AI Assistant" 
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
                   <div className="flex flex-col items-start">
                     <div className="rounded-2xl px-4 py-3 bg-gray-100">
                       <div className="flex space-x-2">
@@ -357,7 +353,11 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything..."
-                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+                style={{ 
+                  '--tw-ring-color': themeColor,
+                  focusRingColor: themeColor 
+                }}
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
                 <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
@@ -366,7 +366,8 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 <button
                   onClick={handleSendMessage}
                   disabled={!chatInput.trim() || isLoading || !backendStatus.online}
-                  className="p-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="p-2 text-white rounded-lg hover:opacity-90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: chatInput.trim() && !isLoading && backendStatus.online ? themeColor : undefined }}
                 >
                   <Send className="w-4 h-4" />
                 </button>
