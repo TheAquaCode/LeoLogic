@@ -275,7 +275,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       >
         {/* General Tab */}
         {activeTab === 'general' ? (
-          <div className="grid gap-4 grid-cols-1 max-w-3xl">
+          <div className="grid gap-4 grid-cols-1 max-w-5xl">
             {/* Appearance */}
             <SettingsCard title="Appearance" icon={Palette}>
               <Dropdown
@@ -394,7 +394,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
           </div>
         ) : (
           // --- Advanced Tab ---
-          <div className="grid gap-4 grid-cols-1 max-w-3xl">
+          <div className="grid gap-4 grid-cols-1 max-w-5xl">
             <SettingsCard title="File Processing" icon={Sliders}>
               <div className="space-y-3">
                 <div className="space-y-2">
