@@ -272,7 +272,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       <div
         className="flex-1 overflow-auto"
         style={{ 
-          padding: chatbotMaximized ? '1rem' : '1rem 2rem 1rem 1rem',
+          padding: chatbotMaximized ? '1.5rem 1rem' : '1.5rem 2rem',
         }}
       >
         {/* General Tab */}
@@ -321,7 +321,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
             {/* Confidence Thresholds */}
             <SettingsCard title="Confidence Thresholds" icon={Settings}>
-              <div className="grid gap-4 grid-cols-4">
+              <div className={`grid gap-4 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
                 <Slider
                   label="Text"
                   value={settings.confidenceThresholds.text}
