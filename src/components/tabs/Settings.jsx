@@ -4,19 +4,19 @@ import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders 
 // --- Inline Components ---
 const SettingsCard = ({ title, children, icon: Icon }) => (
   <div
-    className="rounded-lg border p-6"
+    className="rounded-lg border p-4"
     style={{
       backgroundColor: 'var(--theme-bg-secondary)',
       borderColor: 'var(--theme-border-primary)',
     }}
   >
-    <div className="flex items-center space-x-3 mb-6">
-      {Icon && <Icon className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />}
-      <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
+    <div className="flex items-center space-x-2 mb-4">
+      {Icon && <Icon className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />}
+      <h3 className="text-base font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
         {title}
       </h3>
     </div>
-    <div className="space-y-4">{children}</div>
+    <div className="space-y-3">{children}</div>
   </div>
 );
 
@@ -87,7 +87,7 @@ const Dropdown = ({ label, value, onChange, options }) => (
 );
 
 const Switch = ({ label, value, onChange, description }) => (
-  <div className="flex items-center justify-between py-2">
+  <div className="flex items-center justify-between py-1">
     <div className="flex flex-col">
       <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
         {label}
@@ -248,7 +248,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       >
         <button
           onClick={() => setActiveTab('general')}
-          className="py-4 text-sm font-medium border-b-2 transition-colors"
+          className="py-3 text-sm font-medium border-b-2 transition-colors"
           style={{
             borderColor: activeTab === 'general' ? 'var(--theme-primary)' : 'transparent',
             color: activeTab === 'general' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
@@ -258,7 +258,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
         </button>
         <button
           onClick={() => setActiveTab('advanced')}
-          className="py-4 text-sm font-medium border-b-2 transition-colors"
+          className="py-3 text-sm font-medium border-b-2 transition-colors"
           style={{
             borderColor: activeTab === 'advanced' ? 'var(--theme-primary)' : 'transparent',
             color: activeTab === 'advanced' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
@@ -270,12 +270,12 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
       {/* Content */}
       <div
-        className="flex-1 overflow-auto p-6"
-        style={{ paddingRight: chatbotMaximized ? '2rem' : '4rem' }}
+        className="flex-1 overflow-auto p-4"
+        style={{ paddingRight: chatbotMaximized ? '1.5rem' : '2rem' }}
       >
         {/* General Tab */}
         {activeTab === 'general' ? (
-          <div className="grid gap-6 grid-cols-1 max-w-3xl">
+          <div className="grid gap-4 grid-cols-1 max-w-3xl">
             {/* Appearance */}
             <SettingsCard title="Appearance" icon={Palette}>
               <Dropdown
@@ -319,7 +319,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
             {/* Confidence Thresholds */}
             <SettingsCard title="Confidence Thresholds" icon={Settings}>
-              <div className="grid gap-6 grid-cols-4">
+              <div className="grid gap-4 grid-cols-4">
                 <Slider
                   label="Text"
                   value={settings.confidenceThresholds.text}
@@ -359,7 +359,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                 value={settings.preloadModels}
                 onChange={(value) => updateSetting('preloadModels', value)}
               />
-              <div className="pt-3 mt-3 space-y-1" style={{ borderTop: '1px solid var(--theme-border-secondary)' }}>
+              <div className="pt-2 mt-2 space-y-1" style={{ borderTop: '1px solid var(--theme-border-secondary)' }}>
                 <Switch
                   label="Text"
                   value={settings.modelToggles.textClassification}
@@ -394,9 +394,9 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
           </div>
         ) : (
           // --- Advanced Tab ---
-          <div className="grid gap-6 grid-cols-1 max-w-3xl">
+          <div className="grid gap-4 grid-cols-1 max-w-3xl">
             <SettingsCard title="File Processing" icon={Sliders}>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
                     Max File Size (MB)
