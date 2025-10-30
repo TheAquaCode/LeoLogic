@@ -8,6 +8,8 @@ const SettingsCard = ({ title, children, icon: Icon }) => (
     style={{
       backgroundColor: 'var(--theme-bg-secondary)',
       borderColor: 'var(--theme-border-primary)',
+      maxWidth: '100%',
+      overflow: 'hidden',
     }}
   >
     <div className="flex items-center space-x-2 mb-4">
@@ -272,7 +274,8 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       <div
         className="flex-1 overflow-auto"
         style={{ 
-          padding: chatbotMaximized ? '1.5rem 1rem' : '1.5rem 2rem',
+          padding: chatbotMaximized ? '1rem' : '1.5rem 2rem',
+          maxWidth: '100%',
         }}
       >
         {/* General Tab */}
@@ -321,7 +324,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
             {/* Confidence Thresholds */}
             <SettingsCard title="Confidence Thresholds" icon={Settings}>
-              <div className={`grid gap-4 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
+              <div className={`grid gap-4 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-4'}`}>
                 <Slider
                   label="Text"
                   value={settings.confidenceThresholds.text}
@@ -448,8 +451,8 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
             </SettingsCard>
 
             <SettingsCard title="Maintenance" icon={RotateCcw}>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className={`flex ${chatbotMaximized ? 'flex-col' : 'flex-row'} items-start justify-between gap-3`}>
+                <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
                     Clear Application Cache
                   </h4>
@@ -457,7 +460,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
                     Remove temporary files and cached data
                   </p>
                 </div>
-                <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
+                <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap flex-shrink-0">
                   Clear Cache
                 </button>
               </div>
