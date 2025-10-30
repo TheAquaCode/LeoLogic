@@ -394,7 +394,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
           </div>
         ) : (
           // --- Advanced Tab ---
-          <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          <div className="grid gap-6 grid-cols-1 max-w-3xl">
             <SettingsCard title="File Processing" icon={Sliders}>
               <div className="space-y-4">
                 <div className="space-y-2">
