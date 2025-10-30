@@ -54,7 +54,19 @@ def process_file(file_path: str, folder_id: int):
                 
                 # Move the file
                 shutil.move(file_path, dest_path)
-                print(f"✅ Moved {file_path} -> {dest_path} (conf={confidence:.2f})")
+                
+                # Format paths for better console output
+                def format_path_for_console(path):
+                    """Show root/.../parent/file.ext format"""
+                    parts = Path(path).parts
+                    if len(parts) <= 3:
+                        return str(path)
+                    return f"{parts[0]}/...../{parts[-2]}/{parts[-1]}"
+                
+                from_display = format_path_for_console(original_path)
+                to_display = format_path_for_console(str(dest_path))
+                
+                print(f"✅ Moved: {from_display} → {to_display} (conf={confidence:.2f})")
                 
                 # Track the movement in history
                 file_history.add_movement(

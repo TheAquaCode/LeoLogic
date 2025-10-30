@@ -56,16 +56,20 @@ const StatsCards = ({ stats, isChatMaximized }) => {
   );
 };
 
-const truncatePath = (path, maxLength = 40) => {
+const truncatePath = (path, maxLength = 50) => {
   if (path.length <= maxLength) return path;
   
   const parts = path.split(/[/\\]/);
-  if (parts.length <= 2) return path;
+  
+  // Show at least parent folder and filename
+  if (parts.length <= 3) return path;
   
   const fileName = parts[parts.length - 1];
-  const firstDir = parts[0];
+  const parentFolder = parts[parts.length - 2];
+  const rootDir = parts[0];
   
-  return `${firstDir}/.../${fileName}`;
+  // Format: C:/...../ParentFolder/file.txt
+  return `${rootDir}/...../${parentFolder}/${fileName}`;
 };
 
 const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter }) => {
@@ -269,11 +273,11 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                       <span className="text-sm text-gray-600">{movement.detection}</span>
                     </div>
                     <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
-                      <span className="truncate max-w-[200px]" title={movement.fromPath}>
+                      <span className="truncate max-w-[250px]" title={movement.fromPath}>
                         {truncatePath(movement.fromPath)}
                       </span>
                       <ArrowRight className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate max-w-[200px]" title={movement.toPath}>
+                      <span className="truncate max-w-[250px]" title={movement.toPath}>
                         {truncatePath(movement.toPath)}
                       </span>
                     </div>
