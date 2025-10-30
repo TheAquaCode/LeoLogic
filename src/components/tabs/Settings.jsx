@@ -275,7 +275,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       >
         {/* General Tab */}
         {activeTab === 'general' ? (
-          <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className="grid gap-6 grid-cols-1 max-w-3xl">
             {/* Appearance */}
             <SettingsCard title="Appearance" icon={Palette}>
               <Dropdown
@@ -319,7 +319,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
             {/* Confidence Thresholds */}
             <SettingsCard title="Confidence Thresholds" icon={Settings}>
-              <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
+              <div className="grid gap-6 grid-cols-4">
                 <Slider
                   label="Text"
                   value={settings.confidenceThresholds.text}
