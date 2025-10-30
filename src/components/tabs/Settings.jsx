@@ -270,12 +270,14 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
       {/* Content */}
       <div
-        className="flex-1 overflow-auto p-4"
-        style={{ paddingRight: chatbotMaximized ? '1.5rem' : '2rem' }}
+        className="flex-1 overflow-auto"
+        style={{ 
+          padding: chatbotMaximized ? '1rem' : '1rem 2rem 1rem 1rem',
+        }}
       >
         {/* General Tab */}
         {activeTab === 'general' ? (
-          <div className="grid gap-4 grid-cols-1 max-w-5xl">
+          <div className={`grid gap-4 grid-cols-1 ${chatbotMaximized ? 'max-w-3xl' : 'max-w-5xl'}`}>
             {/* Appearance */}
             <SettingsCard title="Appearance" icon={Palette}>
               <Dropdown
@@ -394,7 +396,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
           </div>
         ) : (
           // --- Advanced Tab ---
-          <div className="grid gap-4 grid-cols-1 max-w-5xl">
+          <div className={`grid gap-4 grid-cols-1 ${chatbotMaximized ? 'max-w-3xl' : 'max-w-5xl'}`}>
             <SettingsCard title="File Processing" icon={Sliders}>
               <div className="space-y-3">
                 <div className="space-y-2">
