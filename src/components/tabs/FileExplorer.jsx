@@ -29,10 +29,17 @@ const FileExplorer = ({ isChatMaximized }) => {
 
   // Backend connection state
   const [backendStatus, setBackendStatus] = useState('checking');
-  const [watchedFolders, setWatchedFolders] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [watchedFolders, setWatchedFolders] = useState(() => {
+    // Load from localStorage immediately on mount
+    return loadFromStorage('watched_folders') || [];
+  });
+  const [categories, setCategories] = useState(() => {
+    // Load from localStorage immediately on mount
+    return loadFromStorage('categories') || [];
+  });
   const [error, setError] = useState(null);
   const [processingFolder, setProcessingFolder] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,28 +68,32 @@ const FileExplorer = ({ isChatMaximized }) => {
   const loadData = async () => {
     const isOnline = await checkBackendStatus();
     
-    if (isOnline) {
+    // Only fetch from backend if online and it's the initial load
+    // Or if the cached data is empty
+    const shouldFetch = isOnline && (isInitialLoad || watchedFolders.length === 0 || categories.length === 0);
+    
+    if (shouldFetch) {
       try {
         const [foldersData, categoriesData] = await Promise.all([
           apiService.getWatchedFolders(),
           apiService.getCategories()
         ]);
         
-        setWatchedFolders(Array.isArray(foldersData) ? foldersData : []);
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        const folders = Array.isArray(foldersData) ? foldersData : [];
+        const cats = Array.isArray(categoriesData) ? categoriesData : [];
         
+        setWatchedFolders(folders);
+        setCategories(cats);
+        
+        // Save to localStorage for instant access next time
+        saveToStorage('watched_folders', folders);
+        saveToStorage('categories', cats);
+        
+        setIsInitialLoad(false);
       } catch (err) {
         console.error('Error loading data:', err);
-        const savedFolders = loadFromStorage('watched_folders') || [];
-        const savedCategories = loadFromStorage('categories') || [];
-        setWatchedFolders(savedFolders);
-        setCategories(savedCategories);
+        // Keep using cached data from localStorage
       }
-    } else {
-      const savedFolders = loadFromStorage('watched_folders') || [];
-      const savedCategories = loadFromStorage('categories') || [];
-      setWatchedFolders(savedFolders);
-      setCategories(savedCategories);
     }
   };
 

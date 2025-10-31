@@ -73,8 +73,16 @@ const truncatePath = (path, maxLength = 50) => {
 };
 
 const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter }) => {
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [movements, setMovements] = useState(() => {
+    // Try to load from sessionStorage for instant display
+    try {
+      const cached = sessionStorage.getItem('history_movements');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [processingUndo, setProcessingUndo] = useState(null);
@@ -90,6 +98,9 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
       const data = await apiService.getHistory(100);
       setMovements(data);
       setError(null);
+      
+      // Cache in sessionStorage for instant access
+      sessionStorage.setItem('history_movements', JSON.stringify(data));
     } catch (err) {
       console.error('Error loading history:', err);
       setError('Unable to load file history');
@@ -342,14 +353,28 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 };
 
 const History = ({ isChatMaximized }) => {
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    undone: 0,
-    pending: 0,
-    success_rate: '0%'
+  const [stats, setStats] = useState(() => {
+    // Try to load from sessionStorage for instant display
+    try {
+      const cached = sessionStorage.getItem('history_stats');
+      return cached ? JSON.parse(cached) : {
+        total: 0,
+        completed: 0,
+        undone: 0,
+        pending: 0,
+        success_rate: '0%'
+      };
+    } catch {
+      return {
+        total: 0,
+        completed: 0,
+        undone: 0,
+        pending: 0,
+        success_rate: '0%'
+      };
+    }
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('All Actions');
   const [timeFilter, setTimeFilter] = useState('All Time');
@@ -364,6 +389,9 @@ const History = ({ isChatMaximized }) => {
     try {
       const data = await apiService.getHistoryStats();
       setStats(data);
+      
+      // Cache in sessionStorage for instant access
+      sessionStorage.setItem('history_stats', JSON.stringify(data));
     } catch (err) {
       console.error('Error loading stats:', err);
     } finally {

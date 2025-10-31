@@ -143,6 +143,38 @@ def register_routes(app):
                 results.append(process_file(str(file_path), folder_id))
         return jsonify({"processed": len(results), "results": results})
     
+    # Upload and process endpoint
+    @app.route("/api/upload-and-process", methods=["POST"])
+    def upload_and_process():
+        """Handle file upload and process without adding as watched folder"""
+        try:
+            if 'file' not in request.files:
+                return jsonify({"error": "No file provided"}), 400
+            
+            file = request.files['file']
+            if file.filename == '':
+                return jsonify({"error": "No file selected"}), 400
+            
+            # Create temporary directory for uploads
+            from config.settings import DATA_DIR
+            upload_dir = DATA_DIR / "uploads"
+            upload_dir.mkdir(exist_ok=True)
+            
+            # Save file temporarily
+            temp_path = upload_dir / file.filename
+            file.save(str(temp_path))
+            
+            # Process the file (using -1 as folder_id to indicate upload)
+            result = process_file(str(temp_path), -1)
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"❌ Error in upload-and-process: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+    
     # History endpoints
     @app.route("/api/history", methods=["GET"])
     def get_history():
