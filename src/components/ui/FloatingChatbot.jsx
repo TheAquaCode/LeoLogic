@@ -236,7 +236,8 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
           {/* Header - Draggable - UPDATED WITH LOGO */}
           <div
             onMouseDown={handleMouseDown}
-            className={`bg-black text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            className={`text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            style={{ backgroundColor: 'var(--theme-primary)' }}
           >
             <div className="flex items-center space-x-2">
               <img 
