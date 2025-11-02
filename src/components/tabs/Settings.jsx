@@ -116,7 +116,7 @@ const Switch = ({ label, value, onChange, description }) => (
 );
 
 // --- Main Settings Page ---
-const SettingsPage = ({ chatbotMaximized = false }) => {
+const SettingsPage = ({ isChatMaximized = false }) => {
   const loadSettings = () => {
     return window.appSettings || {
       baseTheme: 'light',
@@ -234,7 +234,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     <div
       className={`flex-1 flex flex-col overflow-hidden transition-all duration-300`}
       style={{
-        marginRight: chatbotMaximized ? '480px' : '0px',
+        marginRight: isChatMaximized ? '480px' : '0px',
         transition: 'margin-right 0.3s ease',
       }}
     >
@@ -317,7 +317,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
               {/* Confidence Thresholds */}
               <SettingsCard title="Confidence Thresholds" icon={Settings}>
-                <div className={`grid gap-4 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
+                <div className={`grid gap-4 ${isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
                   <Slider
                     label="Text"
                     value={settings.confidenceThresholds.text}
