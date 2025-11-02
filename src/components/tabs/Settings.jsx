@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useimport React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
 
 // --- Inline Components ---
@@ -232,9 +232,11 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   // --- Layout with dynamic resizing ---
   return (
     <div
-      className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-        chatbotMaximized ? 'pr-[500px]' : ''
-      }`}
+      className={`flex-1 flex flex-col overflow-hidden transition-all duration-300`}
+      style={{
+        marginRight: chatbotMaximized ? '480px' : '0px',
+        transition: 'margin-right 0.3s ease',
+      }}
     >
       {/* Tabs */}
       <div
