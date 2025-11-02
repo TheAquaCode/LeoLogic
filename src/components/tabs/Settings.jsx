@@ -1,4 +1,4 @@
-import React, { useimport React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
 
 // --- Inline Components ---
