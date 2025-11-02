@@ -65,23 +65,24 @@ const FileExplorer = ({ isChatMaximized }) => {
           apiService.getCategories()
         ]);
         
-        setWatchedFolders(foldersData || []);
-        setCategories(categoriesData || []);
+        // Ensure arrays
+        setWatchedFolders(Array.isArray(foldersData) ? foldersData : []);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         
       } catch (err) {
         console.error('Error loading data:', err);
         // Load from localStorage as fallback
         const savedFolders = loadFromStorage('watched_folders', []);
         const savedCategories = loadFromStorage('categories', []);
-        setWatchedFolders(savedFolders);
-        setCategories(savedCategories);
+        setWatchedFolders(Array.isArray(savedFolders) ? savedFolders : []);
+        setCategories(Array.isArray(savedCategories) ? savedCategories : []);
       }
     } else {
       // Load from localStorage
       const savedFolders = loadFromStorage('watched_folders', []);
       const savedCategories = loadFromStorage('categories', []);
-      setWatchedFolders(savedFolders);
-      setCategories(savedCategories);
+      setWatchedFolders(Array.isArray(savedFolders) ? savedFolders : []);
+      setCategories(Array.isArray(savedCategories) ? savedCategories : []);
     }
   };
 
@@ -369,7 +370,9 @@ const FileExplorer = ({ isChatMaximized }) => {
             Organize files quickly with AI-powered actions
           </p>
           
-          <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className={`grid gap-4 mb-4 ${
+            isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'
+          }`}>
             {sortOptions.map((option) => (
               <QuickSortCard
                 key={option.id}
@@ -401,7 +404,7 @@ const FileExplorer = ({ isChatMaximized }) => {
         isChatMaximized ? 'grid-cols-1' : 'grid-cols-2'
       }`}>
         <WatchedFolders 
-          folders={watchedFolders}
+          folders={Array.isArray(watchedFolders) ? watchedFolders : []}
           onAddFolder={handleAddWatchedFolder}
           onToggleStatus={handleToggleFolderStatus}
           onEditPath={handleEditFolderPath}
@@ -411,7 +414,7 @@ const FileExplorer = ({ isChatMaximized }) => {
           backendOnline={backendStatus === 'online'}
         />
         <Categories 
-          categories={categories}
+          categories={Array.isArray(categories) ? categories : []}
           onAddCategory={handleAddCategory}
           onEditPath={handleEditCategoryPath}
           onDelete={handleDeleteCategory}
