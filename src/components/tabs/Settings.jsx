@@ -192,15 +192,21 @@ const SettingsPage = ({ isChatMaximized = false }) => {
     if (base === 'dark') {
       root.style.setProperty('--theme-bg-primary', '#09090b');
       root.style.setProperty('--theme-bg-secondary', '#18181b');
+      root.style.setProperty('--theme-bg-tertiary', '#27272a');
       root.style.setProperty('--theme-text-primary', '#fafafa');
+      root.style.setProperty('--theme-text-secondary', '#d4d4d8');
       root.style.setProperty('--theme-text-tertiary', '#a1a1aa');
       root.style.setProperty('--theme-border-primary', '#3f3f46');
+      root.style.setProperty('--theme-border-secondary', '#27272a');
     } else {
       root.style.setProperty('--theme-bg-primary', '#f9fafb');
       root.style.setProperty('--theme-bg-secondary', '#ffffff');
+      root.style.setProperty('--theme-bg-tertiary', '#f3f4f6');
       root.style.setProperty('--theme-text-primary', '#111827');
+      root.style.setProperty('--theme-text-secondary', '#6b7280');
       root.style.setProperty('--theme-text-tertiary', '#6b7280');
       root.style.setProperty('--theme-border-primary', '#e5e7eb');
+      root.style.setProperty('--theme-border-secondary', '#f3f4f6');
     }
     root.style.setProperty('--theme-primary', accentColors.primary);
     root.style.setProperty('--theme-primary-hover', accentColors.hover);
