@@ -259,7 +259,10 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 )}
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMaximized(false);
+                }}
                 className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
                 <X className="w-5 h-5" />
