@@ -26,25 +26,6 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
   const chatRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Get theme color from CSS variables
-  const getThemeColor = () => {
-    const root = getComputedStyle(document.documentElement);
-    return root.getPropertyValue('--theme-primary').trim() || '#2563eb';
-  };
-
-  const [themeColor, setThemeColor] = useState(getThemeColor());
-
-  // Update theme color when it changes
-  useEffect(() => {
-    const updateTheme = () => {
-      setThemeColor(getThemeColor());
-    };
-    
-    // Check for theme changes every second
-    const interval = setInterval(updateTheme, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Check backend health
   useEffect(() => {
     const checkHealth = async () => {
@@ -225,8 +206,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 text-white rounded-full shadow-lg hover:opacity-90 transition-all hover:scale-110 flex items-center justify-center z-50"
-          style={{ backgroundColor: themeColor }}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110 flex items-center justify-center z-50"
         >
           <MessageSquare className="w-6 h-6" />
         </button>
@@ -253,20 +233,24 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             </>
           )}
 
-          {/* Header */}
+          {/* Header - Draggable - UPDATED WITH LOGO */}
           <div
             onMouseDown={handleMouseDown}
             className={`text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
-            style={{ backgroundColor: themeColor }}
+            style={{ backgroundColor: 'var(--theme-primary)' }}
           >
             <div className="flex items-center space-x-2">
-              <MessageSquare className="w-5 h-5" />
+              <img 
+                src={clankyIcon} 
+                alt="Clanky AI" 
+                className="w-6 h-6 rounded-full object-cover"
+              />
               <span className="font-semibold">AI Assistant</span>
             </div>
             <div className="flex items-center space-x-1">
               <button
                 onClick={toggleMaximize}
-                className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
                 {isMaximized ? (
                   <ChevronRight className="w-5 h-5" />
@@ -275,8 +259,11 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 )}
               </button>
               <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMaximized(false);
+                }}
+                className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -288,16 +275,14 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex items-start space-x-3 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.type === 'ai' ? '' : 'text-white'
-                  }`}
-                  style={message.type === 'user' ? { backgroundColor: themeColor } : {}}
-                  >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                    message.type === 'ai' ? 'bg-gray-900' : 'bg-blue-600'
+                  }`}>
                     {message.type === 'ai' ? (
                       <img 
                         src={clankyIcon} 
-                        alt="AI Assistant" 
-                        className="w-9 h-9 rounded-full object-cover"
+                        alt="Clanky AI" 
+                        className="w-9 h-9 object-cover"
                       />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-white"></div>
@@ -308,10 +293,8 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                     <div className={`rounded-2xl px-4 py-3 ${
                       message.type === 'ai' 
                         ? 'bg-gray-100 text-gray-900' 
-                        : 'text-white'
-                    }`}
-                    style={message.type === 'user' ? { backgroundColor: themeColor } : {}}
-                    >
+                        : 'bg-blue-600 text-white'
+                    }`}>
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     </div>
                     <span className="text-xs text-gray-500 mt-1.5">{message.timestamp}</span>
@@ -324,11 +307,13 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="flex items-start space-x-2 max-w-[80%]">
-                  <img 
-                    src={clankyIcon} 
-                    alt="AI Assistant" 
-                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
+                  <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
+                    <img 
+                      src={clankyIcon} 
+                      alt="Clanky AI" 
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  </div>
                   <div className="flex flex-col items-start">
                     <div className="rounded-2xl px-4 py-3 bg-gray-100">
                       <div className="flex space-x-2">
@@ -353,11 +338,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything..."
-                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
-                style={{ 
-                  '--tw-ring-color': themeColor,
-                  focusRingColor: themeColor 
-                }}
+                className="w-full pl-4 pr-20 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
                 <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
@@ -366,8 +347,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 <button
                   onClick={handleSendMessage}
                   disabled={!chatInput.trim() || isLoading || !backendStatus.online}
-                  className="p-2 text-white rounded-lg hover:opacity-90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: chatInput.trim() && !isLoading && backendStatus.online ? themeColor : undefined }}
+                  className="p-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
                 </button>
