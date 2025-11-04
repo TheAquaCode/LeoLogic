@@ -13,107 +13,181 @@ from config.settings import RAG_DATA_DIR as RAG_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 
 class RAGGenerator:
     """Generate and store RAG data for files"""
-    
+
     @staticmethod
     def get_rag_cache_path(file_path: str) -> Path:
-        """Get the RAG cache file path for a given file"""
-        # Create unique filename based on file path + modification time
-        file_stat = Path(file_path).stat()
-        cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
-        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
-        
-        return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
-    
+        """
+        Get the RAG cache file path for a given file.
+        Uses content-based hashing so cache works even after file moves.
+        """
+        try:
+            # Check if file exists
+            if not Path(file_path).exists():
+                # If file doesn't exist, use path-only hash
+                # This handles cases where we're looking for cache after file moved
+                cache_hash = hashlib.md5(str(file_path).encode()).hexdigest()
+                return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
+
+            # Create unique filename based on file path + modification time
+            file_stat = Path(file_path).stat()
+            cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
+            cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+
+            return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
+        except Exception as e:
+            # Fallback: use just the filename
+            print(f"  ⚠️  Error getting cache path: {e}")
+            cache_hash = hashlib.md5(str(file_path).encode()).hexdigest()
+            return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
+
     @staticmethod
     def check_rag_cache(file_path: str) -> Dict:
         """Check if RAG data already exists for this file"""
         from config.settings import ENABLE_RAG_CACHING
-        
+
         if not ENABLE_RAG_CACHING:
             return None
-        
-        cache_path = RAGGenerator.get_rag_cache_path(file_path)
-        
-        if cache_path.exists():
-            try:
-                with open(cache_path, 'r', encoding='utf-8') as f:
-                    cached_data = json.load(f)
-                print(f"  ♻️  Using cached RAG data")
-                return cached_data
-            except Exception as e:
-                print(f"  ⚠️  Cache read error: {e}")
-                return None
-        
+
+        try:
+            cache_path = RAGGenerator.get_rag_cache_path(file_path)
+
+            if cache_path.exists():
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        cached_data = json.load(f)
+                    print(f"  ♻️  Using cached RAG data")
+                    return cached_data
+                except Exception as e:
+                    print(f"  ⚠️  Cache read error: {e}")
+                    return None
+        except Exception as e:
+            print(f"  ⚠️  Error checking cache: {e}")
+            return None
+
         return None
-    
+
     @staticmethod
     def create_rag_document(
-        file_path: str,
-        extracted_data: Dict,
-        ai_analysis: Dict,
-        category: str
+        file_path: str, extracted_data: Dict, ai_analysis: Dict, category: str
     ) -> str:
         """
         Create a RAG document with all file information.
         Returns: Path to RAG JSON file
         """
-        rag_path = RAGGenerator.get_rag_cache_path(file_path)
-        
-        # Chunk the text content
-        full_text = extracted_data.get("text", "")
-        if extracted_data.get("audio_transcript"):
-            full_text += "\n\nAudio Transcript:\n" + extracted_data["audio_transcript"]
-        
-        chunks = RAGGenerator._chunk_text(full_text)
-        
-        # Create RAG document
-        rag_doc = {
-            "file_info": {
-                "original_path": file_path,
-                "filename": Path(file_path).name,
-                "category": category,
-                "file_type": extracted_data.get("file_type", "unknown"),
-                "created_at": datetime.now().isoformat()
-            },
-            "content": {
-                "full_text": full_text[:10000],  # Store first 10k chars
-                "chunks": chunks,
-                "audio_transcript": extracted_data.get("audio_transcript", ""),
-                "images": extracted_data.get("images", [])
-            },
-            "analysis": {
-                "summary": ai_analysis.get("summary", ""),
-                "keywords": ai_analysis.get("keywords", []),
-                "entities": ai_analysis.get("entities", []),
-                "category_suggestions": ai_analysis.get("category_suggestions", [])
-            },
-            "metadata": extracted_data.get("metadata", {})
-        }
-        
-        # Save RAG document
-        with open(rag_path, 'w', encoding='utf-8') as f:
-            json.dump(rag_doc, f, indent=2, ensure_ascii=False)
-        
-        print(f"💾 RAG document created: {rag_path}")
-        return str(rag_path)
-    
+        try:
+            # Check if file exists before creating RAG
+            if not Path(file_path).exists():
+                print(f"  ⚠️  File not found, cannot create RAG: {file_path}")
+                return None
+
+            rag_path = RAGGenerator.get_rag_cache_path(file_path)
+
+            # Chunk the text content
+            full_text = extracted_data.get("text", "")
+            if extracted_data.get("audio_transcript"):
+                full_text += (
+                    "\n\nAudio Transcript:\n" + extracted_data["audio_transcript"]
+                )
+
+            chunks = RAGGenerator._chunk_text(full_text)
+
+            # Create RAG document
+            rag_doc = {
+                "file_info": {
+                    "original_path": file_path,
+                    "filename": Path(file_path).name,
+                    "category": category,
+                    "file_type": extracted_data.get("file_type", "unknown"),
+                    "created_at": datetime.now().isoformat(),
+                },
+                "content": {
+                    "full_text": full_text[:10000],  # Store first 10k chars
+                    "chunks": chunks,
+                    "audio_transcript": extracted_data.get("audio_transcript", ""),
+                    "images": extracted_data.get("images", []),
+                },
+                "analysis": {
+                    "summary": ai_analysis.get("summary", ""),
+                    "keywords": ai_analysis.get("keywords", []),
+                    "entities": ai_analysis.get("entities", []),
+                    "category_suggestions": ai_analysis.get("category_suggestions", []),
+                },
+                "metadata": extracted_data.get("metadata", {}),
+            }
+
+            # Ensure RAG directory exists
+            RAG_DIR.mkdir(parents=True, exist_ok=True)
+
+            # Save RAG document
+            with open(rag_path, "w", encoding="utf-8") as f:
+                json.dump(rag_doc, f, indent=2, ensure_ascii=False)
+
+            print(f"💾 RAG document created: {rag_path}")
+            return str(rag_path)
+
+        except Exception as e:
+            print(f"  ⚠️  Error creating RAG document: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return None
+
+    @staticmethod
+    def update_rag_file_path(old_path: str, new_path: str) -> bool:
+        """
+        Update RAG document when a file is moved.
+        Finds the RAG document by old path and updates it with new path.
+        """
+        try:
+            # Try to find RAG file using old path
+            old_rag_path = RAGGenerator.get_rag_cache_path(old_path)
+
+            if old_rag_path.exists():
+                # Read existing RAG data
+                with open(old_rag_path, "r", encoding="utf-8") as f:
+                    rag_doc = json.load(f)
+
+                # Update file path
+                rag_doc["file_info"]["original_path"] = new_path
+                rag_doc["file_info"]["filename"] = Path(new_path).name
+
+                # Get new RAG path
+                new_rag_path = RAGGenerator.get_rag_cache_path(new_path)
+
+                # Save to new location
+                with open(new_rag_path, "w", encoding="utf-8") as f:
+                    json.dump(rag_doc, f, indent=2, ensure_ascii=False)
+
+                # Delete old RAG file if different
+                if old_rag_path != new_rag_path:
+                    old_rag_path.unlink()
+
+                print(f"  ✅ Updated RAG path: {old_path} -> {new_path}")
+                return True
+
+            return False
+
+        except Exception as e:
+            print(f"  ⚠️  Error updating RAG path: {e}")
+            return False
+
     @staticmethod
     def _chunk_text(text: str) -> List[str]:
         """Split text into overlapping chunks"""
         if not text:
             return []
-        
+
         chunks = []
         start = 0
-        
+
         while start < len(text):
             end = start + CHUNK_SIZE
             chunk = text[start:end]
             chunks.append(chunk)
             start += CHUNK_SIZE - CHUNK_OVERLAP
-        
+
         return chunks
-    
+
     @staticmethod
     def search_rag(query: str, max_results: int = 5) -> List[Dict]:
         """
@@ -123,47 +197,53 @@ class RAGGenerator:
         results = []
         query_lower = query.lower()
         query_words = set(query_lower.split())
-        
+
         # Search through all RAG files
         for rag_file in RAG_DIR.glob("*.rag.json"):
             try:
-                with open(rag_file, 'r', encoding='utf-8') as f:
+                with open(rag_file, "r", encoding="utf-8") as f:
                     rag_doc = json.load(f)
-                
+
                 # Calculate relevance score
                 score = 0
-                
+
                 # Check summary
                 summary = rag_doc.get("analysis", {}).get("summary", "").lower()
                 score += sum(word in summary for word in query_words) * 3
-                
+
                 # Check keywords
-                keywords = [k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])]
+                keywords = [
+                    k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])
+                ]
                 score += sum(word in keywords for word in query_words) * 5
-                
+
                 # Check chunks
                 for chunk in rag_doc.get("content", {}).get("chunks", []):
                     chunk_lower = chunk.lower()
                     score += sum(word in chunk_lower for word in query_words)
-                
+
                 # Check audio transcript
-                transcript = rag_doc.get("content", {}).get("audio_transcript", "").lower()
+                transcript = (
+                    rag_doc.get("content", {}).get("audio_transcript", "").lower()
+                )
                 score += sum(word in transcript for word in query_words) * 2
-                
+
                 if score > 0:
-                    results.append({
-                        "file": rag_doc["file_info"]["filename"],
-                        "path": rag_doc["file_info"]["original_path"],
-                        "summary": rag_doc["analysis"]["summary"],
-                        "keywords": rag_doc["analysis"]["keywords"],
-                        "score": score,
-                        "content_preview": rag_doc["content"]["full_text"][:500]
-                    })
-            
+                    results.append(
+                        {
+                            "file": rag_doc["file_info"]["filename"],
+                            "path": rag_doc["file_info"]["original_path"],
+                            "summary": rag_doc["analysis"]["summary"],
+                            "keywords": rag_doc["analysis"]["keywords"],
+                            "score": score,
+                            "content_preview": rag_doc["content"]["full_text"][:500],
+                        }
+                    )
+
             except Exception as e:
                 print(f"⚠️ Error reading RAG file {rag_file}: {e}")
                 continue
-        
+
         # Sort by score and return top results
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:max_results]
