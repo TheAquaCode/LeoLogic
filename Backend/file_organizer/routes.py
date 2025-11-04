@@ -79,6 +79,20 @@ def register_routes(app):
             return jsonify({"folder": folder})  # Fixed: wrapped in object
         return jsonify({"error": "Folder not found"}), 404
 
+    @app.route("/api/watched-folders/<int:folder_id>", methods=["DELETE"])
+    def delete_folder(folder_id):
+        folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
+        if folder:
+            # Stop watching the folder
+            stop_watching(folder_id)
+            # Remove from list
+            state.watched_folders = [
+                f for f in state.watched_folders if f["id"] != folder_id
+            ]
+            save_config()
+            return jsonify({"message": "Folder deleted successfully"})
+        return jsonify({"error": "Folder not found"}), 404
+
     # Categories
     @app.route("/api/categories", methods=["GET"])
     def get_categories():
@@ -97,6 +111,29 @@ def register_routes(app):
         return jsonify(
             {"category": category}
         )  # Fixed: wrapped in object for consistency
+
+    @app.route("/api/categories/<int:category_id>", methods=["PUT"])
+    def update_category(category_id):
+        category = next((c for c in state.categories if c["id"] == category_id), None)
+        if category:
+            data = request.json
+            # Update fields if provided
+            if "name" in data:
+                category["name"] = data["name"]
+            if "path" in data:
+                category["path"] = data["path"]
+            save_config()
+            return jsonify({"category": category})
+        return jsonify({"error": "Category not found"}), 404
+
+    @app.route("/api/categories/<int:category_id>", methods=["DELETE"])
+    def delete_category(category_id):
+        category = next((c for c in state.categories if c["id"] == category_id), None)
+        if category:
+            state.categories = [c for c in state.categories if c["id"] != category_id]
+            save_config()
+            return jsonify({"message": "Category deleted successfully"})
+        return jsonify({"error": "Category not found"}), 404
 
     # Manual folder processing
     @app.route("/api/process-folder/<int:folder_id>", methods=["POST"])
