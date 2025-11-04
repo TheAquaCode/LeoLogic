@@ -54,15 +54,17 @@ class APIService {
   // Watched Folders
   async getWatchedFolders() {
     const data = await this.request('/watched-folders');
-    // Accept both array or { folders: [...] }
-    return Array.isArray(data) ? data : data.folders || [];
+    // Backend now returns array directly
+    return Array.isArray(data) ? data : [];
   }
 
   async addWatchedFolder(folder) {
-    return this.request('/watched-folders', {
+    const data = await this.request('/watched-folders', {
       method: 'POST',
       body: JSON.stringify(folder),
     });
+    // Backend returns the folder directly
+    return data;
   }
 
   async deleteWatchedFolder(folderId) {
@@ -72,9 +74,11 @@ class APIService {
   }
 
   async toggleFolderStatus(folderId) {
-    return this.request(`/watched-folders/${folderId}/toggle`, {
+    const data = await this.request(`/watched-folders/${folderId}/toggle`, {
       method: 'POST',
     });
+    // Backend returns the folder directly
+    return data;
   }
 
   async processFolderFiles(folderId) {
@@ -86,15 +90,17 @@ class APIService {
   // Categories
   async getCategories() {
     const data = await this.request('/categories');
-    // Accept both array or { categories: [...] }
-    return Array.isArray(data) ? data : data.categories || [];
+    // Backend now returns array directly
+    return Array.isArray(data) ? data : [];
   }
 
   async addCategory(category) {
-    return this.request('/categories', {
+    const data = await this.request('/categories', {
       method: 'POST',
       body: JSON.stringify(category),
     });
+    // Backend returns the category directly
+    return data;
   }
 
   async deleteCategory(categoryId) {
@@ -113,6 +119,27 @@ class APIService {
   // Statistics
   async getStats() {
     return this.request('/stats');
+  }
+
+  // History
+  async getHistory(limit = 100) {
+    return this.request(`/history?limit=${limit}`);
+  }
+
+  async getHistoryStats() {
+    return this.request('/history/stats');
+  }
+
+  async undoMovement(movementId) {
+    return this.request(`/history/${movementId}/undo`, {
+      method: 'POST',
+    });
+  }
+
+  async openFileLocation(movementId) {
+    return this.request(`/history/${movementId}/open`, {
+      method: 'POST',
+    });
   }
 }
 

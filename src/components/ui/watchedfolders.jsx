@@ -1,4 +1,4 @@
-// src/components/ui/watchedfolders.jsx - Updated with process folder feature
+// src/components/ui/watchedfolders.jsx - Fixed with null safety
 import React, { useState } from 'react';
 import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2, Zap, Loader } from 'lucide-react';
 import { getStatusColor } from '../../utils/helpers';
@@ -14,6 +14,9 @@ const WatchedFolders = ({
   backendOnline = false
 }) => {
   const [openMenuId, setOpenMenuId] = useState(null);
+
+  // Ensure folders is always an array
+  const safeFolders = Array.isArray(folders) ? folders : [];
 
   return (
     <div className="flex flex-col min-h-0">
@@ -33,14 +36,14 @@ const WatchedFolders = ({
       <p className="text-sm text-gray-600 mb-6">Folders monitored by AI</p>
 
       <div className="space-y-3 overflow-y-auto flex-1">
-        {folders.length === 0 ? (
+        {safeFolders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Folder className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>No folders being watched</p>
             <p className="text-sm">Click "Add" to start monitoring a folder</p>
           </div>
         ) : (
-          folders.map((folder) => (
+          safeFolders.map((folder) => (
             <div key={folder.id} className="bg-white rounded-lg border border-gray-200 p-4 relative">
               {processingFolder === folder.id && (
                 <div className="absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center z-10">
@@ -134,9 +137,9 @@ const WatchedFolders = ({
                 </div>
               </div>
               <div className="flex items-center justify-between mt-3 text-sm">
-                <span className="text-gray-600">{folder.files} files</span>
+                <span className="text-gray-600">{folder.files || 0} files</span>
                 <div className="flex items-center space-x-3">
-                  <span className="text-gray-500">{folder.lastActivity}</span>
+                  <span className="text-gray-500">{folder.lastActivity || 'Never'}</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(folder.status)}`}>
                     {folder.status}
                   </span>

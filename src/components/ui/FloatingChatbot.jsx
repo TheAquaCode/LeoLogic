@@ -46,7 +46,6 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // NEW: Notify parent component when maximize state changes
   useEffect(() => {
     if (onMaximizeChange) {
       onMaximizeChange(isMaximized);
@@ -54,51 +53,50 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
   }, [isMaximized, onMaximizeChange]);
 
   const handleSendMessage = async () => {
-  if (!chatInput.trim() || isLoading) return;
+    if (!chatInput.trim() || isLoading) return;
 
-  const currentMessage = chatInput.trim(); // capture current value
+    const currentMessage = chatInput.trim();
 
-  const userMessage = {
-    id: messages.length + 1,
-    type: 'user',
-    content: currentMessage,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const userMessage = {
+      id: messages.length + 1,
+      type: 'user',
+      content: currentMessage,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:5000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentMessage })
+      });
+
+      const data = await response.json();
+
+      const aiMessage = {
+        id: messages.length + 2,
+        type: 'ai',
+        content: data.response || 'Sorry, I encountered an error.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage = {
+        id: messages.length + 2,
+        type: 'ai',
+        content: 'Sorry, I cannot connect to the backend. Make sure the Flask server is running on port 5000.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
-  setMessages(prev => [...prev, userMessage]);
-  setChatInput(''); // safe to clear now
-  setIsLoading(true);
-
-  try {
-    const response = await fetch('http://localhost:5000/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: currentMessage }) // use the captured value
-    });
-
-    const data = await response.json();
-
-    const aiMessage = {
-      id: messages.length + 2,
-      type: 'ai',
-      content: data.response || 'Sorry, I encountered an error.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, aiMessage]);
-  } catch (error) {
-    const errorMessage = {
-      id: messages.length + 2,
-      type: 'ai',
-      content: 'Sorry, I cannot connect to the backend. Make sure the Flask server is running on port 5000.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -224,53 +222,29 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
           {/* Resize Handles */}
           {!isMaximized && (
             <>
-              {/* Top */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top')}
-                className="absolute top-0 left-2 right-2 h-1 cursor-n-resize"
-              />
-              {/* Bottom */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')}
-                className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize"
-              />
-              {/* Left */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'left')}
-                className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize"
-              />
-              {/* Right */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'right')}
-                className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize"
-              />
-              {/* Corners */}
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')}
-                className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')}
-                className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')}
-                className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize"
-              />
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')}
-                className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize"
-              />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top')} className="absolute top-0 left-2 right-2 h-1 cursor-n-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom')} className="absolute bottom-0 left-2 right-2 h-1 cursor-s-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'left')} className="absolute left-0 top-2 bottom-2 w-1 cursor-w-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'right')} className="absolute right-0 top-2 bottom-2 w-1 cursor-e-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-left')} className="absolute top-0 left-0 w-2 h-2 cursor-nw-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'top-right')} className="absolute top-0 right-0 w-2 h-2 cursor-ne-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-left')} className="absolute bottom-0 left-0 w-2 h-2 cursor-sw-resize" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, 'bottom-right')} className="absolute bottom-0 right-0 w-2 h-2 cursor-se-resize" />
             </>
           )}
 
-          {/* Header - Draggable */}
+          {/* Header - Draggable - UPDATED WITH LOGO */}
           <div
             onMouseDown={handleMouseDown}
-            className={`bg-black text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            className={`text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
+            style={{ backgroundColor: 'var(--theme-primary)' }}
           >
             <div className="flex items-center space-x-2">
-              <MessageSquare className="w-5 h-5" />
+              <img 
+                src={clankyIcon} 
+                alt="Clanky AI" 
+                className="w-6 h-6 rounded-full object-cover"
+              />
               <span className="font-semibold">AI Assistant</span>
             </div>
             <div className="flex items-center space-x-1">
@@ -285,7 +259,10 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                 )}
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMaximized(false);
+                }}
                 className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -298,11 +275,15 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex items-start space-x-3 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.type === 'ai' ? 'bg-gray-900 text-white' : 'bg-blue-600 text-white'
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                    message.type === 'ai' ? 'bg-gray-900' : 'bg-blue-600'
                   }`}>
                     {message.type === 'ai' ? (
-                      <MessageSquare className="w-5 h-5" />
+                      <img 
+                        src={clankyIcon} 
+                        alt="Clanky AI" 
+                        className="w-9 h-9 object-cover"
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-white"></div>
                     )}

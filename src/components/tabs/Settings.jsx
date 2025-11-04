@@ -4,19 +4,19 @@ import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders 
 // --- Inline Components ---
 const SettingsCard = ({ title, children, icon: Icon }) => (
   <div
-    className="rounded-lg border p-6"
+    className="rounded-lg border p-4"
     style={{
       backgroundColor: 'var(--theme-bg-secondary)',
       borderColor: 'var(--theme-border-primary)',
     }}
   >
-    <div className="flex items-center space-x-3 mb-6">
-      {Icon && <Icon className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />}
-      <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
+    <div className="flex items-center space-x-2 mb-4">
+      {Icon && <Icon className="w-4 h-4" style={{ color: 'var(--theme-text-tertiary)' }} />}
+      <h3 className="text-base font-semibold" style={{ color: 'var(--theme-text-primary)' }}>
         {title}
       </h3>
     </div>
-    <div className="space-y-4">{children}</div>
+    <div className="space-y-3">{children}</div>
   </div>
 );
 
@@ -80,14 +80,14 @@ const Dropdown = ({ label, value, onChange, options }) => (
         viewBox="0 0 24 24"
         style={{ color: 'var(--theme-text-tertiary)' }}
       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <path strokeLinecap="round" strokeLineJoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     </div>
   </div>
 );
 
 const Switch = ({ label, value, onChange, description }) => (
-  <div className="flex items-center justify-between py-2">
+  <div className="flex items-center justify-between py-1">
     <div className="flex flex-col">
       <span className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
         {label}
@@ -116,7 +116,7 @@ const Switch = ({ label, value, onChange, description }) => (
 );
 
 // --- Main Settings Page ---
-const SettingsPage = ({ chatbotMaximized = false }) => {
+const SettingsPage = ({ isChatMaximized = false }) => {
   const loadSettings = () => {
     return window.appSettings || {
       baseTheme: 'light',
@@ -192,15 +192,21 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     if (base === 'dark') {
       root.style.setProperty('--theme-bg-primary', '#09090b');
       root.style.setProperty('--theme-bg-secondary', '#18181b');
+      root.style.setProperty('--theme-bg-tertiary', '#27272a');
       root.style.setProperty('--theme-text-primary', '#fafafa');
+      root.style.setProperty('--theme-text-secondary', '#d4d4d8');
       root.style.setProperty('--theme-text-tertiary', '#a1a1aa');
       root.style.setProperty('--theme-border-primary', '#3f3f46');
+      root.style.setProperty('--theme-border-secondary', '#27272a');
     } else {
       root.style.setProperty('--theme-bg-primary', '#f9fafb');
       root.style.setProperty('--theme-bg-secondary', '#ffffff');
+      root.style.setProperty('--theme-bg-tertiary', '#f3f4f6');
       root.style.setProperty('--theme-text-primary', '#111827');
+      root.style.setProperty('--theme-text-secondary', '#6b7280');
       root.style.setProperty('--theme-text-tertiary', '#6b7280');
       root.style.setProperty('--theme-border-primary', '#e5e7eb');
+      root.style.setProperty('--theme-border-secondary', '#f3f4f6');
     }
     root.style.setProperty('--theme-primary', accentColors.primary);
     root.style.setProperty('--theme-primary-hover', accentColors.hover);
@@ -232,15 +238,15 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   // --- Layout with dynamic resizing ---
   return (
     <div
-      className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
+      className={`flex-1 flex flex-col overflow-hidden transition-all duration-300`}
       style={{
-        width: chatbotMaximized ? 'calc(100% - 420px)' : '100%',
-        transition: 'width 0.3s ease',
+        marginRight: isChatMaximized ? '480px' : '0px',
+        transition: 'margin-right 0.3s ease',
       }}
     >
       {/* Tabs */}
       <div
-        className="border-b px-6 w-full sticky top-0 z-10 flex space-x-8"
+        className="border-b px-6 flex space-x-8"
         style={{
           backgroundColor: 'var(--theme-bg-secondary)',
           borderColor: 'var(--theme-border-primary)',
@@ -248,7 +254,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
       >
         <button
           onClick={() => setActiveTab('general')}
-          className="py-4 text-sm font-medium border-b-2 transition-colors"
+          className="py-3 text-sm font-medium border-b-2 transition-colors"
           style={{
             borderColor: activeTab === 'general' ? 'var(--theme-primary)' : 'transparent',
             color: activeTab === 'general' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
@@ -258,7 +264,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
         </button>
         <button
           onClick={() => setActiveTab('advanced')}
-          className="py-4 text-sm font-medium border-b-2 transition-colors"
+          className="py-3 text-sm font-medium border-b-2 transition-colors"
           style={{
             borderColor: activeTab === 'advanced' ? 'var(--theme-primary)' : 'transparent',
             color: activeTab === 'advanced' ? 'var(--theme-primary)' : 'var(--theme-text-tertiary)',
@@ -268,200 +274,199 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
         </button>
       </div>
 
-      {/* Content */}
-      <div
-        className="flex-1 overflow-auto p-6"
-        style={{ paddingRight: chatbotMaximized ? '2rem' : '4rem' }}
-      >
-        {/* General Tab */}
-        {activeTab === 'general' ? (
-          <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            {/* Appearance */}
-            <SettingsCard title="Appearance" icon={Palette}>
-              <Dropdown
-                label="Theme"
-                value={settings.baseTheme}
-                onChange={(value) => {
-                  updateSetting('baseTheme', value);
-                  applyTheme(value, settings.accentColor);
-                }}
-                options={baseThemes}
-              />
-              <Dropdown
-                label="Accent Color"
-                value={settings.accentColor}
-                onChange={(value) => {
-                  updateSetting('accentColor', value);
-                  applyTheme(settings.baseTheme, value);
-                }}
-                options={accentColors}
-              />
-            </SettingsCard>
-
-            {/* Notifications */}
-            <SettingsCard title="Notifications" icon={Bell}>
-              <Switch
-                label="Run on Startup"
-                value={settings.runOnStartup}
-                onChange={(value) => updateSetting('runOnStartup', value)}
-              />
-              <Switch
-                label="Desktop Notifications"
-                value={settings.desktopNotifications}
-                onChange={(value) => updateSetting('desktopNotifications', value)}
-              />
-              <Switch
-                label="Minimize to Tray"
-                value={settings.minimizeToTray}
-                onChange={(value) => updateSetting('minimizeToTray', value)}
-              />
-            </SettingsCard>
-
-            {/* Confidence Thresholds */}
-            <SettingsCard title="Confidence Thresholds" icon={Settings}>
-              <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
-                <Slider
-                  label="Text"
-                  value={settings.confidenceThresholds.text}
-                  onChange={(value) => updateConfidenceThreshold('text', value)}
+      {/* Content with proper max-width wrapper */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-6xl mx-auto w-full">
+          {/* General Tab */}
+          {activeTab === 'general' ? (
+            <div className="grid gap-4 grid-cols-1">
+              {/* Appearance */}
+              <SettingsCard title="Appearance" icon={Palette}>
+                <Dropdown
+                  label="Theme"
+                  value={settings.baseTheme}
+                  onChange={(value) => {
+                    updateSetting('baseTheme', value);
+                    applyTheme(value, settings.accentColor);
+                  }}
+                  options={baseThemes}
                 />
-                <Slider
-                  label="Images"
-                  value={settings.confidenceThresholds.images}
-                  onChange={(value) => updateConfidenceThreshold('images', value)}
+                <Dropdown
+                  label="Accent Color"
+                  value={settings.accentColor}
+                  onChange={(value) => {
+                    updateSetting('accentColor', value);
+                    applyTheme(settings.baseTheme, value);
+                  }}
+                  options={accentColors}
                 />
-                <Slider
-                  label="Audio"
-                  value={settings.confidenceThresholds.audio}
-                  onChange={(value) => updateConfidenceThreshold('audio', value)}
-                />
-                <Slider
-                  label="Video"
-                  value={settings.confidenceThresholds.video}
-                  onChange={(value) => updateConfidenceThreshold('video', value)}
-                />
-              </div>
-            </SettingsCard>
+              </SettingsCard>
 
-            {/* Fallback & Models */}
-            <SettingsCard title="Fallback Behavior" icon={AlertTriangle}>
-              <Dropdown
-                label="When confidence is low"
-                value={settings.fallbackBehavior}
-                onChange={(value) => updateSetting('fallbackBehavior', value)}
-                options={fallbackOptions}
-              />
-            </SettingsCard>
-
-            <SettingsCard title="AI Models" icon={Brain}>
-              <Switch
-                label="Pre-load models"
-                value={settings.preloadModels}
-                onChange={(value) => updateSetting('preloadModels', value)}
-              />
-              <div className="pt-3 mt-3 space-y-1" style={{ borderTop: '1px solid var(--theme-border-secondary)' }}>
+              {/* Notifications */}
+              <SettingsCard title="Notifications" icon={Bell}>
                 <Switch
-                  label="Text"
-                  value={settings.modelToggles.textClassification}
-                  onChange={(value) => updateModelToggle('textClassification', value)}
+                  label="Run on Startup"
+                  value={settings.runOnStartup}
+                  onChange={(value) => updateSetting('runOnStartup', value)}
                 />
                 <Switch
-                  label="Images"
-                  value={settings.modelToggles.imageRecognition}
-                  onChange={(value) => updateModelToggle('imageRecognition', value)}
+                  label="Desktop Notifications"
+                  value={settings.desktopNotifications}
+                  onChange={(value) => updateSetting('desktopNotifications', value)}
                 />
                 <Switch
-                  label="Audio"
-                  value={settings.modelToggles.audioProcessing}
-                  onChange={(value) => updateModelToggle('audioProcessing', value)}
+                  label="Minimize to Tray"
+                  value={settings.minimizeToTray}
+                  onChange={(value) => updateSetting('minimizeToTray', value)}
                 />
-                <Switch
-                  label="Video"
-                  value={settings.modelToggles.videoAnalysis}
-                  onChange={(value) => updateModelToggle('videoAnalysis', value)}
-                />
-              </div>
-            </SettingsCard>
+              </SettingsCard>
 
-            <SettingsCard title="Auto-organization" icon={Zap}>
-              <Dropdown
-                label="Scan Frequency"
-                value={settings.scanFrequency}
-                onChange={(value) => updateSetting('scanFrequency', value)}
-                options={scanFrequencyOptions}
-              />
-            </SettingsCard>
-          </div>
-        ) : (
-          // --- Advanced Tab ---
-          <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-1' : 'grid-cols-3'}`}>
-            <SettingsCard title="File Processing" icon={Sliders}>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
-                    Max File Size (MB)
-                  </label>
-                  <input
-                    type="number"
-                    value={settings.maxFileSize}
-                    onChange={(e) => updateSetting('maxFileSize', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2"
-                    style={{
-                      backgroundColor: 'var(--theme-bg-secondary)',
-                      borderColor: 'var(--theme-border-primary)',
-                      color: 'var(--theme-text-primary)',
-                    }}
-                    min="1"
-                    max="10000"
+              {/* Confidence Thresholds */}
+              <SettingsCard title="Confidence Thresholds" icon={Settings}>
+                <div className={`grid gap-4 ${isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
+                  <Slider
+                    label="Text"
+                    value={settings.confidenceThresholds.text}
+                    onChange={(value) => updateConfidenceThreshold('text', value)}
+                  />
+                  <Slider
+                    label="Images"
+                    value={settings.confidenceThresholds.images}
+                    onChange={(value) => updateConfidenceThreshold('images', value)}
+                  />
+                  <Slider
+                    label="Audio"
+                    value={settings.confidenceThresholds.audio}
+                    onChange={(value) => updateConfidenceThreshold('audio', value)}
+                  />
+                  <Slider
+                    label="Video"
+                    value={settings.confidenceThresholds.video}
+                    onChange={(value) => updateConfidenceThreshold('video', value)}
                   />
                 </div>
+              </SettingsCard>
+
+              {/* Fallback & Models */}
+              <SettingsCard title="Fallback Behavior" icon={AlertTriangle}>
                 <Dropdown
-                  label="Log Level"
-                  value={settings.logLevel}
-                  onChange={(value) => updateSetting('logLevel', value)}
-                  options={logLevelOptions}
+                  label="When confidence is low"
+                  value={settings.fallbackBehavior}
+                  onChange={(value) => updateSetting('fallbackBehavior', value)}
+                  options={fallbackOptions}
                 />
-              </div>
-            </SettingsCard>
+              </SettingsCard>
 
-            <SettingsCard title="File Options" icon={Settings}>
-              <Switch
-                label="Skip Hidden Files"
-                value={settings.skipHiddenFiles}
-                onChange={(value) => updateSetting('skipHiddenFiles', value)}
-                description="Don't process files starting with '.'"
-              />
-              <Switch
-                label="Preserve Metadata"
-                value={settings.preserveMetadata}
-                onChange={(value) => updateSetting('preserveMetadata', value)}
-                description="Keep file dates"
-              />
-              <Switch
-                label="Create Backups"
-                value={settings.createBackups}
-                onChange={(value) => updateSetting('createBackups', value)}
-                description="Backup before moving"
-              />
-            </SettingsCard>
-
-            <SettingsCard title="Maintenance" icon={RotateCcw}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
-                    Clear Application Cache
-                  </h4>
-                  <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
-                    Remove temporary files and cached data
-                  </p>
+              <SettingsCard title="AI Models" icon={Brain}>
+                <Switch
+                  label="Pre-load models"
+                  value={settings.preloadModels}
+                  onChange={(value) => updateSetting('preloadModels', value)}
+                />
+                <div className="pt-2 mt-2 space-y-1" style={{ borderTop: '1px solid var(--theme-border-secondary)' }}>
+                  <Switch
+                    label="Text"
+                    value={settings.modelToggles.textClassification}
+                    onChange={(value) => updateModelToggle('textClassification', value)}
+                  />
+                  <Switch
+                    label="Images"
+                    value={settings.modelToggles.imageRecognition}
+                    onChange={(value) => updateModelToggle('imageRecognition', value)}
+                  />
+                  <Switch
+                    label="Audio"
+                    value={settings.modelToggles.audioProcessing}
+                    onChange={(value) => updateModelToggle('audioProcessing', value)}
+                  />
+                  <Switch
+                    label="Video"
+                    value={settings.modelToggles.videoAnalysis}
+                    onChange={(value) => updateModelToggle('videoAnalysis', value)}
+                  />
                 </div>
-                <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors">
-                  Clear Cache
-                </button>
-              </div>
-            </SettingsCard>
-          </div>
-        )}
+              </SettingsCard>
+
+              <SettingsCard title="Auto-organization" icon={Zap}>
+                <Dropdown
+                  label="Scan Frequency"
+                  value={settings.scanFrequency}
+                  onChange={(value) => updateSetting('scanFrequency', value)}
+                  options={scanFrequencyOptions}
+                />
+              </SettingsCard>
+            </div>
+          ) : (
+            // --- Advanced Tab ---
+            <div className="grid gap-4 grid-cols-1">
+              <SettingsCard title="File Processing" icon={Sliders}>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
+                      Max File Size (MB)
+                    </label>
+                    <input
+                      type="number"
+                      value={settings.maxFileSize}
+                      onChange={(e) => updateSetting('maxFileSize', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-offset-2"
+                      style={{
+                        backgroundColor: 'var(--theme-bg-secondary)',
+                        borderColor: 'var(--theme-border-primary)',
+                        color: 'var(--theme-text-primary)',
+                      }}
+                      min="1"
+                      max="10000"
+                    />
+                  </div>
+                  <Dropdown
+                    label="Log Level"
+                    value={settings.logLevel}
+                    onChange={(value) => updateSetting('logLevel', value)}
+                    options={logLevelOptions}
+                  />
+                </div>
+              </SettingsCard>
+
+              <SettingsCard title="File Options" icon={Settings}>
+                <Switch
+                  label="Skip Hidden Files"
+                  value={settings.skipHiddenFiles}
+                  onChange={(value) => updateSetting('skipHiddenFiles', value)}
+                  description="Don't process files starting with '.'"
+                />
+                <Switch
+                  label="Preserve Metadata"
+                  value={settings.preserveMetadata}
+                  onChange={(value) => updateSetting('preserveMetadata', value)}
+                  description="Keep file dates"
+                />
+                <Switch
+                  label="Create Backups"
+                  value={settings.createBackups}
+                  onChange={(value) => updateSetting('createBackups', value)}
+                  description="Backup before moving"
+                />
+              </SettingsCard>
+
+              <SettingsCard title="Maintenance" icon={RotateCcw}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium" style={{ color: 'var(--theme-text-primary)' }}>
+                      Clear Application Cache
+                    </h4>
+                    <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
+                      Remove temporary files and cached data
+                    </p>
+                  </div>
+                  <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap flex-shrink-0">
+                    Clear Cache
+                  </button>
+                </div>
+              </SettingsCard>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
