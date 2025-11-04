@@ -1,5 +1,6 @@
 """
 AI Processing with Ollama (Phi-3-Mini + LLaVA-Phi3)
+Generic classification that works for ANY user-defined categories
 """
 
 import ollama
@@ -23,7 +24,8 @@ class AIProcessor:
             "summary": str,
             "keywords": List[str],
             "category_suggestions": List[str],
-            "entities": List[str]
+            "entities": List[str],
+            "image_description": str
         }
         """
         result = {
@@ -31,6 +33,7 @@ class AIProcessor:
             "keywords": [],
             "category_suggestions": [],
             "entities": [],
+            "image_description": "",
         }
 
         # Process text with Phi-3-Mini
@@ -49,6 +52,7 @@ class AIProcessor:
         if extracted_data.get("images"):
             for img_path in extracted_data["images"]:
                 img_analysis = AIProcessor._analyze_image(img_path)
+                result["image_description"] = img_analysis
                 result["summary"] += "\n\nImage: " + img_analysis
 
         return result
@@ -112,7 +116,13 @@ CATEGORIES: <category1>, <category2>, <category3>
         try:
             response = state.ollama_client.generate(
                 model=LLAVA_MODEL,
-                prompt="Describe this image in detail. What is the main subject? What text or important elements are visible?",
+                prompt="""Describe this image accurately and objectively:
+1. What is the PRIMARY content? (be specific: is it a person, artwork, screenshot, diagram, document, etc.)
+2. What is the visual style? (photo, digital art, anime/cartoon, technical diagram, UI screenshot, etc.)
+3. What text or important details are visible?
+4. What would someone searching for this type of image be looking for?
+
+Be precise and factual.""",
                 images=[image_path],
             )
 
@@ -123,19 +133,23 @@ CATEGORIES: <category1>, <category2>, <category3>
             return ""
 
     @staticmethod
-    def _calculate_similarity_score(text1: str, text2: str) -> float:
+    def _calculate_semantic_match(content: str, category_name: str) -> float:
         """
-        Calculate simple word overlap similarity between two texts.
-        Returns a score between 0.0 and 1.0.
+        Calculate how well content matches a category name.
+        Works well for both single-word and multi-word categories.
+        Returns score 0.0-1.0
         """
-        if not text1 or not text2:
+        if not content or not category_name:
             return 0.0
 
-        # Normalize and tokenize
-        words1 = set(text1.lower().split())
-        words2 = set(text2.lower().split())
+        content_lower = content.lower()
+        category_lower = category_name.lower()
 
-        # Remove very common words
+        # Split category name into words
+        category_words = set(category_lower.split())
+        content_words = set(content_lower.split())
+
+        # Remove stop words
         stop_words = {
             "the",
             "a",
@@ -152,22 +166,47 @@ CATEGORIES: <category1>, <category2>, <category3>
             "with",
             "by",
         }
-        words1 = words1 - stop_words
-        words2 = words2 - stop_words
+        category_words = category_words - stop_words
+        content_words = content_words - stop_words
 
-        if not words1 or not words2:
+        if not category_words:
             return 0.0
 
-        # Calculate Jaccard similarity
-        intersection = len(words1.intersection(words2))
-        union = len(words1.union(words2))
+        # For single-word categories, give higher weight to exact matches
+        is_single_word = len(category_words) == 1
 
-        return intersection / union if union > 0 else 0.0
+        # Count matches
+        matches = len(category_words.intersection(content_words))
+        total_category_words = len(category_words)
+
+        # Base score: percentage of category words found
+        base_score = matches / total_category_words if total_category_words > 0 else 0.0
+
+        # Boost for single-word categories that match
+        if is_single_word and matches > 0:
+            base_score = min(1.0, base_score + 0.2)
+
+        # Bonus for exact category name phrase appearing in content
+        if category_lower in content_lower:
+            base_score = min(1.0, base_score + 0.3)
+
+        # Check for plural forms (train/trains, girl/girls)
+        category_singular = (
+            list(category_words)[0].rstrip("s") if is_single_word else None
+        )
+        if category_singular and (
+            category_singular in content_lower
+            or category_singular + "s" in content_lower
+        ):
+            base_score = min(1.0, base_score + 0.2)
+
+        return base_score
 
     @staticmethod
     def classify_into_categories(analysis: Dict, categories: List[Dict]) -> Dict:
         """
-        Use AI to classify into user-defined categories with REAL confidence scoring.
+        Classify content into user-defined categories using AI + semantic matching.
+        Works generically for ANY categories without hardcoding.
         Returns: {"category": str, "confidence": float}
         """
         if not categories or not state.ollama_client:
@@ -176,26 +215,51 @@ CATEGORIES: <category1>, <category2>, <category3>
         try:
             category_names = [c["name"] for c in categories]
 
-            # Build context from analysis
-            context = f"{analysis.get('summary', '')} {' '.join(analysis.get('keywords', []))}"
+            # Build comprehensive context
+            context = analysis.get("summary", "")
+            keywords_str = ", ".join(analysis.get("keywords", []))
+            image_desc = analysis.get("image_description", "")
 
-            prompt = f"""Given this file analysis, which category fits best? Rate your confidence from 0-100.
+            # Prioritize image description for images
+            if image_desc:
+                full_context = f"IMAGE CONTENT: {image_desc}\n\nSUMMARY: {context}\nKEYWORDS: {keywords_str}"
+            else:
+                full_context = f"SUMMARY: {context}\nKEYWORDS: {keywords_str}"
 
-Summary: {analysis.get('summary', '')}
-Keywords: {', '.join(analysis.get('keywords', []))}
+            prompt = f"""You are a file organization assistant. Match files to categories based on their PRIMARY visual content.
 
-Available categories: {', '.join(category_names)}
+FILE ANALYSIS:
+{full_context}
 
-Respond ONLY in this exact format:
-CATEGORY: <category_name>
-CONFIDENCE: <number from 0-100>
-REASONING: <brief explanation>"""
+AVAILABLE CATEGORIES:
+{', '.join(category_names)}
+
+MATCHING RULES:
+1. Match based on what the PRIMARY subject/content is
+2. Game screenshots with characters COUNT as character images (e.g., anime character from game = anime character)
+3. REJECT: UI menus, settings screens, code editors, blank interfaces, diagrams/charts WITHOUT the main subject
+4. ACCEPT: In-game screenshots showing the subject, artwork, photos, renders
+5. For single-word categories (like "trains"), match if that's the main visual subject
+6. If no clear match or PRIMARY content doesn't fit any category, respond "NONE"
+
+Examples:
+- "trains" category + image of train → MATCH
+- "anime girl" category + game screenshot showing anime girl character → MATCH  
+- "anime girl" category + game menu/settings screen → NO MATCH
+- "lecture" category + statistics diagram → MATCH
+- "lecture" category + anime character → NO MATCH
+
+Respond in this format:
+CATEGORY: <exact category name from list above, or NONE>
+CONFIDENCE: <0-100>
+REASONING: <why the PRIMARY content does/doesn't match>"""
 
             response = state.ollama_client.generate(model=PHI3_MODEL, prompt=prompt)
 
             output = response["response"]
+            logger.debug(f"AI Classification response:\n{output}")
 
-            # Parse response
+            # Parse AI response
             predicted_category = None
             ai_confidence = 0.0
 
@@ -205,62 +269,61 @@ REASONING: <brief explanation>"""
                 elif line.startswith("CONFIDENCE:"):
                     try:
                         conf_str = line.replace("CONFIDENCE:", "").strip()
-                        # Extract just the number
                         conf_str = "".join(
                             c for c in conf_str if c.isdigit() or c == "."
                         )
-                        ai_confidence = float(conf_str) / 100.0  # Convert to 0-1 range
+                        ai_confidence = float(conf_str) / 100.0
                     except:
-                        ai_confidence = 0.5  # Default if parsing fails
+                        ai_confidence = 0.5
 
-            # Find best matching category
+            # If AI said NONE or empty, return no match
+            if not predicted_category or predicted_category.upper() == "NONE":
+                return {"category": None, "confidence": 0.0}
+
+            # Find best matching category from user's list
             best_match = None
             best_score = 0.0
 
             for cat in categories:
-                # Check direct name match
-                if (
-                    predicted_category
-                    and cat["name"].lower() in predicted_category.lower()
-                ):
-                    # Calculate similarity score between context and category name
-                    similarity = AIProcessor._calculate_similarity_score(
-                        context, cat["name"]
+                # Check if AI's prediction matches this category
+                cat_name_lower = cat["name"].lower()
+                pred_lower = predicted_category.lower()
+
+                if cat_name_lower in pred_lower or pred_lower in cat_name_lower:
+                    # Calculate semantic match score
+                    semantic_score = AIProcessor._calculate_semantic_match(
+                        full_context, cat["name"]
                     )
 
-                    # Combine AI confidence with similarity score
-                    combined_score = (ai_confidence * 0.7) + (similarity * 0.3)
+                    # Combine AI confidence with semantic match
+                    # Weight: 60% AI confidence, 40% semantic match
+                    combined_score = (ai_confidence * 0.6) + (semantic_score * 0.4)
 
                     if combined_score > best_score:
                         best_score = combined_score
                         best_match = cat["name"]
 
-            # If no direct match, try matching with AI's category suggestions
-            if not best_match and analysis.get("category_suggestions"):
-                for suggestion in analysis["category_suggestions"]:
-                    for cat in categories:
-                        similarity = AIProcessor._calculate_similarity_score(
-                            suggestion, cat["name"]
-                        )
-                        if similarity > 0.3:  # Threshold for indirect match
-                            combined_score = (
-                                similarity * 0.6
-                            )  # Lower confidence for indirect matches
-                            if combined_score > best_score:
-                                best_score = combined_score
-                                best_match = cat["name"]
+            # Apply confidence thresholds
+            if best_match:
+                # Minimum confidence of 0.30 to consider it a match (lowered for single-word categories)
+                if best_score < 0.30:
+                    logger.debug(f"Score too low ({best_score:.2f}), rejecting match")
+                    return {"category": None, "confidence": 0.0}
 
-            # Cap minimum confidence at 0.3 if we found a match
-            if best_match and best_score > 0:
-                best_score = max(best_score, 0.3)
+                # Cap maximum at 0.95 (increased slightly for very clear matches)
+                best_score = min(best_score, 0.95)
 
-            # Cap maximum confidence at 0.95
-            best_score = min(best_score, 0.95)
+                logger.info(
+                    f"Classified as '{best_match}' with confidence {best_score:.2%}"
+                )
+                return {"category": best_match, "confidence": best_score}
 
-            logger.debug(f"Classification result: {best_match} ({best_score:.2%})")
-
-            return {"category": best_match, "confidence": best_score}
+            # No good match found
+            return {"category": None, "confidence": 0.0}
 
         except Exception as e:
             logger.error(f"Classification error: {e}")
+            import traceback
+
+            traceback.print_exc()
             return {"category": None, "confidence": 0.0}
