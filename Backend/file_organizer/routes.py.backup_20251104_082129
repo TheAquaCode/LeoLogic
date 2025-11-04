@@ -5,14 +5,12 @@ API Routes for File Organizer
 import os
 import json
 import time
-from datetime import datetime
 from pathlib import Path
 from flask import request, jsonify
 from config.settings import CONFIG_FILE
 from .state import state
 from .file_watcher import start_watching, stop_watching
 from .file_processor import process_file
-from .bulk_processor import bulk_processor
 from .rag_generator import RAGGenerator
 
 
@@ -125,91 +123,3 @@ def register_routes(app):
     @app.route("/api/stats", methods=["GET"])
     def get_stats():
         return jsonify(state.processing_stats)
-    
-    # Bulk processing with progress
-    @app.route("/api/process-folder-bulk/<int:folder_id>", methods=["POST"])
-    def process_folder_bulk(folder_id):
-        """Process entire folder with multi-threading"""
-        folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
-        if not folder or not Path(folder["path"]).exists():
-            return jsonify({"error": "Folder not found"}), 404
-        
-        # Get all files
-        file_paths = [str(p) for p in Path(folder["path"]).glob("*") if p.is_file()]
-        
-        if not file_paths:
-            return jsonify({"error": "No files found"}), 404
-        
-        # Process with bulk processor
-        result = bulk_processor.process_files(file_paths, folder_id)
-        return jsonify(result)
-    
-    # Progress tracking
-    @app.route("/api/progress", methods=["GET"])
-    def get_progress():
-        """Get current processing progress"""
-        return jsonify({
-            "queue_length": len(state.processing_queue),
-            "bulk_progress": bulk_processor.get_progress(),
-            "stats": state.processing_stats
-        })
-    
-    # Upload multiple files
-    @app.route("/api/upload-bulk", methods=["POST"])
-    def upload_bulk():
-        """Upload and process multiple files"""
-        from werkzeug.utils import secure_filename
-        from config.settings import DATA_DIR
-        
-        if 'files' not in request.files:
-            return jsonify({"error": "No files provided"}), 400
-        
-        files = request.files.getlist('files')
-        folder_id = int(request.form.get('folder_id', 0))
-        
-        # Save files to temp directory
-        temp_dir = Path(DATA_DIR) / "temp_uploads"
-        temp_dir.mkdir(exist_ok=True)
-        
-        file_paths = []
-        for file in files:
-            if file.filename:
-                filename = secure_filename(file.filename)
-                file_path = temp_dir / filename
-                file.save(file_path)
-                file_paths.append(str(file_path))
-        
-        # Process with bulk processor
-        result = bulk_processor.process_files(file_paths, folder_id)
-        
-        return jsonify(result)
-    
-    # Get move reports
-    @app.route("/api/move-reports", methods=["GET"])
-    def get_move_reports():
-        """List all move reports"""
-        from config.settings import MOVE_LOGS_DIR
-        
-        reports = []
-        for report_file in sorted(MOVE_LOGS_DIR.glob("*.txt"), reverse=True):
-            reports.append({
-                "filename": report_file.name,
-                "path": str(report_file),
-                "created": datetime.fromtimestamp(report_file.stat().st_mtime).isoformat()
-            })
-        
-        return jsonify({"reports": reports})
-    
-    # Download move report
-    @app.route("/api/move-reports/<filename>", methods=["GET"])
-    def download_move_report(filename):
-        """Download a specific move report"""
-        from config.settings import MOVE_LOGS_DIR
-        from flask import send_file
-        
-        report_path = MOVE_LOGS_DIR / filename
-        
-        if not report_path.exists():
-            return jsonify({"error": "Report not found"}), 404
-        
-        return send_file(report_path, as_attachment=True)

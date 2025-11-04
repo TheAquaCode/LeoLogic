@@ -1,7 +1,7 @@
 """
 Leologic Backend - Main Entry Point
 ===================================
-Boots up file organizer, chatbot, and RAG services.
+Boots up both the file organizer and chatbot services.
 """
 
 import os
@@ -9,6 +9,7 @@ import sys
 from threading import Thread
 from pathlib import Path
 
+# Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from file_organizer.app import create_file_organizer_app
@@ -17,7 +18,6 @@ from config.settings import FILE_ORGANIZER_PORT, CHATBOT_PORT
 
 
 def run_file_organizer():
-    """Run file organizer service on port 5001"""
     print(f"🗂️  Starting File Organizer on port {FILE_ORGANIZER_PORT}...")
     app = create_file_organizer_app()
     app.run(host="0.0.0.0", port=FILE_ORGANIZER_PORT, debug=False, use_reloader=False)
@@ -25,22 +25,14 @@ def run_file_organizer():
 
 def run_chatbot():
     """Run chatbot service on port 5000"""
-    print(f"🤖 Starting Chatbot on port {CHATBOT_PORT}...")
     app = create_chatbot_app()
     app.run(host="0.0.0.0", port=CHATBOT_PORT, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("🚀 LEOLOGIC - AI File Sorter Backend")
-    print("=" * 60)
-    print()
-    
     # Start file organizer in separate thread
     organizer_thread = Thread(target=run_file_organizer, daemon=True)
     organizer_thread.start()
-    
-    # Start chatbot in main thread
     try:
         run_chatbot()
     except KeyboardInterrupt:

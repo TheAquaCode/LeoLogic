@@ -9,9 +9,6 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from .state import state
 from .file_processor import process_file
-from utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 
 class FileHandler(FileSystemEventHandler):
@@ -28,7 +25,7 @@ class FileHandler(FileSystemEventHandler):
             return
         
         file_path = event.src_path
-        logger.info(f"New file detected: {file_path}")
+        print(f"🆕 New file detected: {file_path}")
         
         # Add to pending queue with timestamp
         self.pending_files[file_path] = time.time()
@@ -58,17 +55,17 @@ class FileHandler(FileSystemEventHandler):
                 try:
                     process_file(file_path, self.folder_id)
                 except Exception as e:
-                    logger.error(f"Error processing {file_path}: {e}", exc_info=True)
+                    print(f"❌ Error processing {file_path}: {e}")
 
 
 def start_watching(folder_id: int, folder_path: str):
     """Start watching a folder for new files"""
     if folder_id in state.observers:
-        logger.warning(f"Already watching folder {folder_id}")
+        print(f"⚠️ Already watching folder {folder_id}")
         return
     
     if not Path(folder_path).exists():
-        logger.error(f"Folder does not exist: {folder_path}")
+        print(f"❌ Folder does not exist: {folder_path}")
         return
     
     event_handler = FileHandler(folder_id)
@@ -81,7 +78,7 @@ def start_watching(folder_id: int, folder_path: str):
         "handler": event_handler
     }
     
-    logger.info(f"Watching folder: {folder_path}")
+    print(f"👁️  Watching folder: {folder_path}")
     
     # Start processing loop in background
     def processing_loop():
@@ -104,7 +101,7 @@ def stop_watching(folder_id: int):
     observer_data["observer"].join()
     
     del state.observers[folder_id]
-    logger.info(f"Stopped watching folder {folder_id}")
+    print(f"👁️‍🗨️ Stopped watching folder {folder_id}")
 
 
 def start_all_watchers():

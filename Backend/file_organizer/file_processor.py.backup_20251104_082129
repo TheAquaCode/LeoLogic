@@ -5,10 +5,6 @@ File Processing Pipeline with RAG Generation
 import shutil
 from pathlib import Path
 from config.settings import CONFIDENCE_THRESHOLD
-from utils.logger import setup_logger
-from utils.move_logger import add_move
-
-logger = setup_logger(__name__)
 from .state import state
 from .file_extractors import MultiModalExtractor
 from .ai_processor import AIProcessor
@@ -25,18 +21,18 @@ def process_file(file_path: str, folder_id: int):
     5. Move to destination
     """
     try:
-        logger.info(f"Processing file: {Path(file_path).name}", extra={"file_path": file_path})
+        print(f"\n📄 Processing: {file_path}")
         
         # Step 1: Extract all content
-        logger.debug("Extracting content...")
+        print("  🔍 Extracting content...")
         extracted_data = MultiModalExtractor.extract(file_path)
         
         # Step 2: Analyze with AI
-        logger.debug("Analyzing with AI...")
+        print("  🤖 Analyzing with AI...")
         ai_analysis = AIProcessor.analyze_content(extracted_data)
         
         # Step 3: Classify into category
-        logger.debug("Classifying...")
+        print("  🏷️  Classifying...")
         classification = AIProcessor.classify_into_categories(ai_analysis, state.categories)
         category_name = classification["category"]
         confidence = classification["confidence"]
@@ -47,7 +43,7 @@ def process_file(file_path: str, folder_id: int):
             
             if category:
                 # Step 4: Generate RAG document BEFORE moving
-                logger.debug("Generating RAG document...")
+                print("  💾 Generating RAG document...")
                 rag_path = RAGGenerator.create_rag_document(
                     file_path,
                     extracted_data,
@@ -67,8 +63,8 @@ def process_file(file_path: str, folder_id: int):
                     counter += 1
                 
                 shutil.move(file_path, dest_path)
-                logger.info(f"Successfully moved to: {dest_path}")
-                logger.info(f"Confidence: {confidence:.2%}")
+                print(f"  ✅ Moved to: {dest_path}")
+                print(f"  📊 Confidence: {confidence:.2%}")
                 
                 # Update stats
                 state.processing_stats["total"] += 1
@@ -87,7 +83,7 @@ def process_file(file_path: str, folder_id: int):
                 }
         
         # Low confidence - generate RAG anyway but don't move
-        logger.warning(f"Low confidence: {confidence:.2%}")
+        print(f"  ⚠️ Low confidence ({confidence:.2%})")
         rag_path = RAGGenerator.create_rag_document(
             file_path,
             extracted_data,
@@ -107,7 +103,7 @@ def process_file(file_path: str, folder_id: int):
         }
     
     except Exception as e:
-        logger.error(f"Processing error: {e}", exc_info=True)
+        print(f"  ❌ Error: {e}")
         import traceback
         traceback.print_exc()
         

@@ -12,15 +12,8 @@ class FileOrganizerState:
         self.observers = {}
         self.lock = Lock()
         self.processing_queue = []
-        self.ollama_client = None
-        self.whisper_model = None
+        self.bart_classifier = None
         self.is_initialized = False
-        self.processing_stats = {
-            "total": 0,
-            "success": 0,
-            "failed": 0,
-            "by_type": {}
-        }
 
 
 state = FileOrganizerState()

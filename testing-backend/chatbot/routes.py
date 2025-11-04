@@ -27,7 +27,7 @@ def register_routes(app, chatbot):
 
         if not chatbot.is_ready:
             return jsonify({
-                "response": "Ollama is still initializing...",
+                "response": "Mistral API is still initializing...",
                 "model_ready": False
             })
 
