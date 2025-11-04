@@ -33,9 +33,6 @@ except ImportError:
 import zipfile
 
 from .state import state
-from utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 
 
 class MultiModalExtractor:
@@ -108,7 +105,7 @@ class MultiModalExtractor:
                 result["text"] = f"Filename: {path.stem}"
             
         except Exception as e:
-            logger.warning(f"Error extracting {file_path}: {e}")
+            print(f"⚠️ Error extracting {file_path}: {e}")
             result["text"] = path.stem
             result["metadata"]["error"] = str(e)
         
@@ -235,7 +232,7 @@ class MultiModalExtractor:
             transcript = " ".join([segment.text for segment in segments])
             return transcript
         except Exception as e:
-            logger.error(f"Whisper error: {e}")
+            print(f"⚠️ Whisper error: {e}")
             return ""
     
     @staticmethod
@@ -265,7 +262,7 @@ class MultiModalExtractor:
             
             return transcript
         except Exception as e:
-            logger.error(f"Video audio extraction error: {e}")
+            print(f"⚠️ Video audio extraction error: {e}")
             return ""
     
     @staticmethod

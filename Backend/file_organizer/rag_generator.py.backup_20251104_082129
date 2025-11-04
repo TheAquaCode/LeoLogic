@@ -4,7 +4,6 @@ Stores processed files in searchable format for chatbot
 """
 
 import json
-import hashlib
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
@@ -14,15 +13,19 @@ from config.settings import RAG_DATA_DIR as RAG_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 class RAGGenerator:
     """Generate and store RAG data for files"""
     
+
     @staticmethod
     def get_rag_cache_path(file_path: str) -> Path:
         """Get the RAG cache file path for a given file"""
+        from config.settings import RAG_DATA_DIR
+        import hashlib
+        
         # Create unique filename based on file path + modification time
         file_stat = Path(file_path).stat()
         cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
         cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
         
-        return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
+        return RAG_DATA_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
     
     @staticmethod
     def check_rag_cache(file_path: str) -> Dict:
@@ -45,7 +48,7 @@ class RAGGenerator:
                 return None
         
         return None
-    
+
     @staticmethod
     def create_rag_document(
         file_path: str,
@@ -57,6 +60,7 @@ class RAGGenerator:
         Create a RAG document with all file information.
         Returns: Path to RAG JSON file
         """
+        file_name = Path(file_path).stem
         rag_path = RAGGenerator.get_rag_cache_path(file_path)
         
         # Chunk the text content

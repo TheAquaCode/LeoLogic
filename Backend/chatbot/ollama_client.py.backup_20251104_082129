@@ -4,11 +4,6 @@ Ollama Chatbot with RAG Integration
 
 import ollama
 import requests
-import sys
-sys.path.insert(0, str(__file__).rsplit('/', 2)[0])
-from utils.logger import setup_logger
-
-logger = setup_logger(__name__)
 from config.settings import (
     OLLAMA_HOST, PHI3_MODEL, 
     MAX_CONVERSATION_HISTORY, 
@@ -73,7 +68,7 @@ When users ask about their files, you can search through them using the RAG syst
             return response_text
         
         except Exception as e:
-            logger.error(f"Error generating response: {e}", exc_info=True)
+            print(f"❌ Error generating response: {e}")
             import traceback
             traceback.print_exc()
             return f"Error: {str(e)}"
@@ -114,7 +109,7 @@ When users ask about their files, you can search through them using the RAG syst
                 return context
             
         except Exception as e:
-            logger.warning(f"RAG search error: {e}")
+            print(f"⚠️ RAG search error: {e}")
         
         return ""
     
