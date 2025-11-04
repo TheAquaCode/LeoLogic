@@ -32,11 +32,10 @@ ENV/
 *.swo
 *~
 
-# Data & RAG
+# Data
 data/
 *.json
 !requirements.txt
-!package.json
 
 # Environment
 .env
@@ -44,3 +43,5 @@ data/
 # Logs
 *.log
 logs/
+
+chroma_db

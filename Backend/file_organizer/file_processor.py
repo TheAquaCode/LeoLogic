@@ -1,106 +1,115 @@
 """
-File Processing and Classification
+File Processing Pipeline with RAG Generation
 """
 
-import json
 import shutil
 from pathlib import Path
 from config.settings import CONFIDENCE_THRESHOLD
 from .state import state
-from .file_extractor import extract_text_from_file, chunk_text
-
-
-def classify_file(text: str) -> dict:
-    """Use BART to classify file into user categories"""
-    if not state.categories:
-        return {"category": None, "score": 0.0}
-    
-    candidate_labels = [c['name'] for c in state.categories]
-    result = state.bart_classifier(text, candidate_labels, multi_label=False)
-    top_label = result['labels'][0]
-    top_score = result['scores'][0]
-    return {"category": top_label, "score": top_score}
+from .file_extractors import MultiModalExtractor
+from .ai_processor import AIProcessor
+from .rag_generator import RAGGenerator
 
 
 def process_file(file_path: str, folder_id: int):
-    """Process a single file: extract, classify, and move"""
+    """
+    Complete file processing pipeline:
+    1. Extract content (text, images, audio)
+    2. Analyze with AI
+    3. Classify into category
+    4. Generate RAG document
+    5. Move to destination
+    """
     try:
-        # Import here to avoid circular import
-        from .file_history import file_history
+        print(f"\n📄 Processing: {file_path}")
         
-        text = extract_text_from_file(file_path)
-        if not text.strip():
-            print(f"⚠️ Skipping empty file: {file_path}")
-            return
+        # Step 1: Extract all content
+        print("  🔍 Extracting content...")
+        extracted_data = MultiModalExtractor.extract(file_path)
         
-        chunks = chunk_text(text)
-        classification = classify_file(text)
-        best_category_name = classification["category"]
-        confidence = classification["score"]
+        # Step 2: Analyze with AI
+        print("  🤖 Analyzing with AI...")
+        ai_analysis = AIProcessor.analyze_content(extracted_data)
         
-        if best_category_name and confidence >= CONFIDENCE_THRESHOLD:
-            category = next((c for c in state.categories if c['name'] == best_category_name), None)
+        # Step 3: Classify into category
+        print("  🏷️  Classifying...")
+        classification = AIProcessor.classify_into_categories(ai_analysis, state.categories)
+        category_name = classification["category"]
+        confidence = classification["confidence"]
+        
+        # Check if we have a valid category
+        if category_name and confidence >= CONFIDENCE_THRESHOLD:
+            category = next((c for c in state.categories if c['name'] == category_name), None)
+            
             if category:
+                # Step 4: Generate RAG document BEFORE moving
+                print("  💾 Generating RAG document...")
+                rag_path = RAGGenerator.create_rag_document(
+                    file_path,
+                    extracted_data,
+                    ai_analysis,
+                    category_name
+                )
+                
+                # Step 5: Move file to destination
                 dest_folder = Path(category['path'])
                 dest_folder.mkdir(parents=True, exist_ok=True)
                 dest_path = dest_folder / Path(file_path).name
+                
+                # Handle duplicates
                 counter = 1
                 while dest_path.exists():
                     dest_path = dest_folder / f"{Path(file_path).stem}_{counter}{Path(file_path).suffix}"
                     counter += 1
                 
-                # Store original path before moving
-                original_path = str(Path(file_path).resolve())
-                
-                # Move the file
                 shutil.move(file_path, dest_path)
+                print(f"  ✅ Moved to: {dest_path}")
+                print(f"  📊 Confidence: {confidence:.2%}")
                 
-                # Format paths for better console output
-                def format_path_for_console(path):
-                    """Show root/.../parent/file.ext format"""
-                    parts = Path(path).parts
-                    if len(parts) <= 3:
-                        return str(path)
-                    return f"{parts[0]}/...../{parts[-2]}/{parts[-1]}"
-                
-                from_display = format_path_for_console(original_path)
-                to_display = format_path_for_console(str(dest_path))
-                
-                print(f"✅ Moved: {from_display} → {to_display} (conf={confidence:.2f})")
-                
-                # Track the movement in history
-                file_history.add_movement(
-                    file_name=dest_path.name,
-                    from_path=original_path,
-                    to_path=str(dest_path),
-                    category=category['name'],
-                    confidence=confidence,
-                    detection="AI Classification"
-                )
-                
-                # Save chunks as JSON for RAG later
-                rag_path = dest_path.with_suffix(".rag.json")
-                with open(rag_path, "w") as f:
-                    json.dump({"chunks": chunks, "original_file": str(dest_path)}, f, indent=2)
+                # Update stats
+                state.processing_stats["total"] += 1
+                state.processing_stats["success"] += 1
+                file_type = extracted_data.get("file_type", "other")
+                state.processing_stats["by_type"][file_type] = state.processing_stats["by_type"].get(file_type, 0) + 1
                 
                 return {
                     "status": "success",
                     "file_name": dest_path.name,
-                    "category": category["name"],
-                    "confidence": confidence
+                    "category": category_name,
+                    "confidence": confidence,
+                    "summary": ai_analysis.get("summary", ""),
+                    "keywords": ai_analysis.get("keywords", []),
+                    "rag_path": rag_path
                 }
         
-        print(f"⚠️ Low confidence ({confidence:.2f}) for {file_path}")
+        # Low confidence - generate RAG anyway but don't move
+        print(f"  ⚠️ Low confidence ({confidence:.2%})")
+        rag_path = RAGGenerator.create_rag_document(
+            file_path,
+            extracted_data,
+            ai_analysis,
+            "Uncategorized"
+        )
+        
+        state.processing_stats["total"] += 1
+        
         return {
             "status": "low_confidence",
             "file_name": Path(file_path).name,
-            "confidence": confidence
+            "confidence": confidence,
+            "summary": ai_analysis.get("summary", ""),
+            "suggestions": ai_analysis.get("category_suggestions", []),
+            "rag_path": rag_path
         }
     
     except Exception as e:
-        print(f"❌ Error processing {file_path}: {e}")
+        print(f"  ❌ Error: {e}")
         import traceback
         traceback.print_exc()
+        
+        state.processing_stats["total"] += 1
+        state.processing_stats["failed"] += 1
+        
         return {
             "status": "error",
             "file_name": Path(file_path).name,
