@@ -141,6 +141,18 @@ class APIService {
       method: 'POST',
     });
   }
+
+  // Confidence Threshold
+  async getConfidenceThreshold() {
+    return this.request('/confidence-threshold');
+  }
+
+  async updateConfidenceThreshold(threshold) {
+    return this.request('/confidence-threshold', {
+      method: 'POST',
+      body: JSON.stringify({ threshold }),
+    });
+  }
 }
 
 export default new APIService();

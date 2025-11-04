@@ -4,6 +4,7 @@ File Processing and Classification
 
 import json
 import shutil
+import time
 from pathlib import Path
 from config.settings import CONFIDENCE_THRESHOLD
 from .state import state
@@ -78,10 +79,25 @@ def process_file(file_path: str, folder_id: int):
                     detection="AI Classification"
                 )
                 
-                # Save chunks as JSON for RAG later
-                rag_path = dest_path.with_suffix(".rag.json")
+                # Save chunks as JSON for RAG in dedicated directory
+                from config.settings import DATA_DIR
+                rag_dir = DATA_DIR / "rag_files"
+                rag_dir.mkdir(exist_ok=True)
+                
+                # Use file hash or unique name to avoid conflicts
+                rag_filename = f"{dest_path.stem}_{int(time.time())}.rag.json"
+                rag_path = rag_dir / rag_filename
+                
                 with open(rag_path, "w") as f:
-                    json.dump({"chunks": chunks, "original_file": str(dest_path)}, f, indent=2)
+                    json.dump({
+                        "chunks": chunks, 
+                        "original_file": str(dest_path),
+                        "category": category['name'],
+                        "confidence": confidence,
+                        "timestamp": time.time()
+                    }, f, indent=2)
+                
+                print(f"📝 RAG file saved: {rag_path}")
                 
                 return {
                     "status": "success",

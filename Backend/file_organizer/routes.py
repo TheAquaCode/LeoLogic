@@ -175,6 +175,61 @@ def register_routes(app):
             traceback.print_exc()
             return jsonify({"error": str(e)}), 500
     
+    # Confidence threshold endpoints
+    @app.route("/api/confidence-threshold", methods=["GET"])
+    def get_confidence_threshold():
+        """Get current confidence threshold"""
+        from config.settings import CONFIDENCE_THRESHOLD
+        return jsonify({"threshold": CONFIDENCE_THRESHOLD})
+    
+    @app.route("/api/confidence-threshold", methods=["POST"])
+    def update_confidence_threshold():
+        """Update confidence threshold"""
+        try:
+            data = request.json
+            threshold = data.get('threshold')
+            
+            if threshold is None or not (0 <= threshold <= 1):
+                return jsonify({"error": "Threshold must be between 0 and 1"}), 400
+            
+            # Update the settings file
+            from config.settings import BASE_DIR
+            settings_file = BASE_DIR / "config" / "settings.py"
+            
+            # Read current settings
+            with open(settings_file, 'r') as f:
+                content = f.read()
+            
+            # Replace the CONFIDENCE_THRESHOLD line
+            import re
+            new_content = re.sub(
+                r'CONFIDENCE_THRESHOLD = [\d.]+',
+                f'CONFIDENCE_THRESHOLD = {threshold}',
+                content
+            )
+            
+            # Write back
+            with open(settings_file, 'w') as f:
+                f.write(new_content)
+            
+            # Update in-memory value
+            import config.settings as settings_module
+            settings_module.CONFIDENCE_THRESHOLD = threshold
+            
+            print(f"✅ Confidence threshold updated to {threshold} ({int(threshold * 100)}%)")
+            
+            return jsonify({
+                "status": "success",
+                "threshold": threshold,
+                "message": f"Confidence threshold updated to {int(threshold * 100)}%"
+            })
+            
+        except Exception as e:
+            print(f"❌ Error updating threshold: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+    
     # History endpoints
     @app.route("/api/history", methods=["GET"])
     def get_history():

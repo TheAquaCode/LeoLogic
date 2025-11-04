@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
+import apiService from '../../services/api';
 
 // --- Inline Components ---
 const SettingsCard = ({ title, children, icon: Icon }) => (
@@ -121,6 +122,7 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     return window.appSettings || {
       baseTheme: 'light',
       accentColor: 'blue',
+      confidenceThreshold: 30,
       confidenceThresholds: { text: 85, images: 80, audio: 75, video: 70 },
       fallbackBehavior: 'Move to review folder',
       preloadModels: true,
@@ -139,6 +141,8 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
 
   const [settings, setSettings] = useState(loadSettings());
   const [activeTab, setActiveTab] = useState('general');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   useEffect(() => {
     applyTheme(settings.baseTheme, settings.accentColor);
@@ -147,6 +151,40 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
   useEffect(() => {
     window.appSettings = settings;
   }, [settings]);
+
+  // Load current threshold from backend on mount
+  useEffect(() => {
+    loadBackendThreshold();
+  }, []);
+
+  const loadBackendThreshold = async () => {
+    try {
+      const response = await apiService.getConfidenceThreshold();
+      if (response && response.threshold !== undefined) {
+        setSettings(prev => ({ ...prev, confidenceThreshold: Math.round(response.threshold * 100) }));
+      }
+    } catch (error) {
+      console.error('Error loading threshold:', error);
+    }
+  };
+
+  const saveThresholdToBackend = async (threshold) => {
+    setSaving(true);
+    setSaveMessage('');
+    try {
+      // Convert percentage to decimal (e.g., 30% -> 0.3)
+      const decimalThreshold = threshold / 100;
+      await apiService.updateConfidenceThreshold(decimalThreshold);
+      setSaveMessage('✓ Threshold saved successfully');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } catch (error) {
+      console.error('Error saving threshold:', error);
+      setSaveMessage('✗ Failed to save threshold');
+      setTimeout(() => setSaveMessage(''), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const baseThemes = [
     { value: 'light', label: 'Light' },
@@ -162,8 +200,13 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     { value: 'teal', label: 'Teal' },
   ];
 
-  const updateConfidenceThreshold = (type, value) => {
-    setSettings((prev) => ({ ...prev, confidenceThresholds: { ...prev.confidenceThresholds, [type]: value } }));
+  const updateConfidenceThreshold = (value) => {
+    setSettings((prev) => ({ ...prev, confidenceThreshold: value }));
+    // Debounce the save to avoid too many API calls
+    clearTimeout(window.thresholdSaveTimeout);
+    window.thresholdSaveTimeout = setTimeout(() => {
+      saveThresholdToBackend(value);
+    }, 500);
   };
 
   const updateModelToggle = (model, value) => {
@@ -229,7 +272,6 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
     { value: 'Verbose', label: 'Verbose' },
   ];
 
-  // --- Layout with dynamic resizing ---
   return (
     <div
       className="flex-1 flex flex-col overflow-hidden transition-all duration-300"
@@ -322,25 +364,55 @@ const SettingsPage = ({ chatbotMaximized = false }) => {
               <div className={`grid gap-6 ${chatbotMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
                 <Slider
                   label="Text"
-                  value={settings.confidenceThresholds.text}
-                  onChange={(value) => updateConfidenceThreshold('text', value)}
+                  value={settings.confidenceThresholds?.text || settings.confidenceThreshold}
+                  onChange={(value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      confidenceThreshold: value,
+                      confidenceThresholds: { ...prev.confidenceThresholds, text: value }
+                    }));
+                    saveThresholdToBackend(value);
+                  }}
                 />
                 <Slider
                   label="Images"
-                  value={settings.confidenceThresholds.images}
-                  onChange={(value) => updateConfidenceThreshold('images', value)}
+                  value={settings.confidenceThresholds?.images || 80}
+                  onChange={(value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      confidenceThresholds: { ...prev.confidenceThresholds, images: value }
+                    }));
+                  }}
                 />
                 <Slider
                   label="Audio"
-                  value={settings.confidenceThresholds.audio}
-                  onChange={(value) => updateConfidenceThreshold('audio', value)}
+                  value={settings.confidenceThresholds?.audio || 75}
+                  onChange={(value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      confidenceThresholds: { ...prev.confidenceThresholds, audio: value }
+                    }));
+                  }}
                 />
                 <Slider
                   label="Video"
-                  value={settings.confidenceThresholds.video}
-                  onChange={(value) => updateConfidenceThreshold('video', value)}
+                  value={settings.confidenceThresholds?.video || 70}
+                  onChange={(value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      confidenceThresholds: { ...prev.confidenceThresholds, video: value }
+                    }));
+                  }}
                 />
               </div>
+              {saveMessage && (
+                <p className={`text-xs ${saveMessage.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                  {saveMessage}
+                </p>
+              )}
+              <p className="text-xs" style={{ color: 'var(--theme-text-tertiary)' }}>
+                Files with confidence below the threshold will not be automatically sorted
+              </p>
             </SettingsCard>
 
             {/* Fallback & Models */}

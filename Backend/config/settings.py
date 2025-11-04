@@ -22,9 +22,10 @@ CHATBOT_PORT = 5000
 
 # File Organizer Settings
 CONFIG_FILE = DATA_DIR / "file_organizer_config.json"
-CONFIDENCE_THRESHOLD = 0.3
+CONFIDENCE_THRESHOLD = 0.89
 BART_MODEL_NAME = "facebook/bart-large-mnli"
 
 # Chatbot Settings
 MISTRAL_MODEL = "mistral-large-2411"
 MAX_CONVERSATION_HISTORY = 3  # Keep last N exchanges
+
