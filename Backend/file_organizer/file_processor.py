@@ -1,8 +1,14 @@
 """
-File Processing Pipeline with RAG Generation
+File Processing Pipeline with RAG-First Approach
+1. Extract content
+2. Analyze with AI
+3. Create RAG document
+4. Read RAG and classify
+5. Move file based on RAG classification
 """
 
 import shutil
+import json
 from pathlib import Path
 from config.settings import CONFIDENCE_THRESHOLD
 from utils.logger import setup_logger
@@ -17,12 +23,12 @@ from .rag_generator import RAGGenerator
 
 def process_file(file_path: str, folder_id: int):
     """
-    Complete file processing pipeline:
+    RAG-first file processing pipeline:
     1. Extract content (text, images, audio)
     2. Analyze with AI
-    3. Classify into category
-    4. Move to destination (if confident)
-    5. Generate RAG document (using final path)
+    3. Create RAG document FIRST (regardless of confidence)
+    4. Read RAG and classify into category
+    5. Move to destination (if confident)
     """
     try:
         # Check if file still exists before processing
@@ -46,25 +52,51 @@ def process_file(file_path: str, folder_id: int):
         logger.debug("Analyzing with AI...")
         ai_analysis = AIProcessor.analyze_content(extracted_data)
 
-        # Step 3: Classify into category
-        logger.debug("Classifying...")
-        classification = AIProcessor.classify_into_categories(
-            ai_analysis, state.categories
+        # Step 3: Create RAG document FIRST (at original location)
+        logger.debug("Creating RAG document...")
+        rag_path = RAGGenerator.create_rag_document(
+            file_path,
+            extracted_data,
+            ai_analysis,
+            "Uncategorized",  # Temporary, will update after classification
         )
+
+        if not rag_path:
+            logger.warning("RAG creation failed, continuing with classification...")
+
+        # Step 4: Read the RAG file we just created and use it for classification
+        logger.debug("Reading RAG for classification...")
+
+        # Load the RAG document
+        if rag_path and Path(rag_path).exists():
+            with open(rag_path, "r", encoding="utf-8") as f:
+                rag_data = json.load(f)
+
+            # Use RAG data for classification (it has the full analysis)
+            classification = AIProcessor.classify_into_categories(
+                rag_data["analysis"], state.categories
+            )
+        else:
+            # Fallback: use the analysis directly if RAG failed
+            classification = AIProcessor.classify_into_categories(
+                ai_analysis, state.categories
+            )
+
         category_name = classification["category"]
         confidence = classification["confidence"]
 
-        # Track the final file path (either moved or original)
+        # Track the final file path
         final_file_path = file_path
+        final_rag_path = rag_path
 
-        # Check if we have a valid category
+        # Step 5: Move file if confidence is high enough
         if category_name and confidence >= CONFIDENCE_THRESHOLD:
             category = next(
                 (c for c in state.categories if c["name"] == category_name), None
             )
 
             if category:
-                # Step 4: Move file to destination FIRST
+                # Move file to destination folder
                 dest_folder = Path(category["path"])
                 dest_folder.mkdir(parents=True, exist_ok=True)
                 dest_path = dest_folder / Path(file_path).name
@@ -85,11 +117,20 @@ def process_file(file_path: str, folder_id: int):
                 logger.info(f"Successfully moved to: {dest_path}")
                 logger.info(f"Confidence: {confidence:.2%}")
 
-                # Step 5: Generate RAG document AFTER moving (using new path)
-                logger.debug("Generating RAG document...")
-                rag_path = RAGGenerator.create_rag_document(
-                    final_file_path, extracted_data, ai_analysis, category_name
-                )
+                # Update the RAG document with new file path and correct category
+                if rag_path and Path(rag_path).exists():
+                    with open(rag_path, "r", encoding="utf-8") as f:
+                        rag_doc = json.load(f)
+
+                    # Update file info
+                    rag_doc["file_info"]["original_path"] = final_file_path
+                    rag_doc["file_info"]["category"] = category_name
+
+                    # Save updated RAG
+                    with open(rag_path, "w", encoding="utf-8") as f:
+                        json.dump(rag_doc, f, indent=2, ensure_ascii=False)
+
+                    logger.debug(f"Updated RAG with new path and category")
 
                 # Update stats
                 state.processing_stats["total"] += 1
@@ -109,17 +150,9 @@ def process_file(file_path: str, folder_id: int):
                     "rag_path": rag_path,
                 }
 
-        # Low confidence - generate RAG with original path, don't move
+        # Low confidence - file stays in original location, but RAG is already created
         logger.warning(f"Low confidence: {confidence:.2%}")
-
-        # Only create RAG if file still exists at original location
-        if Path(final_file_path).exists():
-            rag_path = RAGGenerator.create_rag_document(
-                final_file_path, extracted_data, ai_analysis, "Uncategorized"
-            )
-        else:
-            logger.warning(f"File moved/deleted before RAG creation: {final_file_path}")
-            rag_path = None
+        logger.info(f"File remains at: {file_path}")
 
         state.processing_stats["total"] += 1
 

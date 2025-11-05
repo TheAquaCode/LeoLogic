@@ -64,7 +64,7 @@ def register_routes(app):
         state.watched_folders.append(folder)
         save_config()
         start_watching(folder["id"], folder["path"])
-        return jsonify({"folder": folder})  # Fixed: wrapped in object
+        return jsonify({"folder": folder})
 
     @app.route("/api/watched-folders/<int:folder_id>/toggle", methods=["POST"])
     def toggle_folder(folder_id):
@@ -76,16 +76,14 @@ def register_routes(app):
             else:
                 stop_watching(folder["id"])
             save_config()
-            return jsonify({"folder": folder})  # Fixed: wrapped in object
+            return jsonify({"folder": folder})
         return jsonify({"error": "Folder not found"}), 404
 
     @app.route("/api/watched-folders/<int:folder_id>", methods=["DELETE"])
     def delete_folder(folder_id):
         folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
         if folder:
-            # Stop watching the folder
             stop_watching(folder_id)
-            # Remove from list
             state.watched_folders = [
                 f for f in state.watched_folders if f["id"] != folder_id
             ]
@@ -108,16 +106,13 @@ def register_routes(app):
         }
         state.categories.append(category)
         save_config()
-        return jsonify(
-            {"category": category}
-        )  # Fixed: wrapped in object for consistency
+        return jsonify({"category": category})
 
     @app.route("/api/categories/<int:category_id>", methods=["PUT"])
     def update_category(category_id):
         category = next((c for c in state.categories if c["id"] == category_id), None)
         if category:
             data = request.json
-            # Update fields if provided
             if "name" in data:
                 category["name"] = data["name"]
             if "path" in data:
@@ -172,13 +167,11 @@ def register_routes(app):
         if not folder or not Path(folder["path"]).exists():
             return jsonify({"error": "Folder not found"}), 404
 
-        # Get all files
         file_paths = [str(p) for p in Path(folder["path"]).glob("*") if p.is_file()]
 
         if not file_paths:
             return jsonify({"error": "No files found"}), 404
 
-        # Process with bulk processor
         result = bulk_processor.process_files(file_paths, folder_id)
         return jsonify(result)
 
@@ -207,7 +200,6 @@ def register_routes(app):
         files = request.files.getlist("files")
         folder_id = int(request.form.get("folder_id", 0))
 
-        # Save files to temp directory
         temp_dir = Path(DATA_DIR) / "temp_uploads"
         temp_dir.mkdir(exist_ok=True)
 
@@ -219,10 +211,51 @@ def register_routes(app):
                 file.save(file_path)
                 file_paths.append(str(file_path))
 
-        # Process with bulk processor
         result = bulk_processor.process_files(file_paths, folder_id)
-
         return jsonify(result)
+
+    # Upload and process single file (ADDED FOR UPLOAD & SCAN)
+    @app.route("/api/upload-and-process", methods=["POST"])
+    def upload_and_process():
+        """Upload and process a single file - mirrors watched folders behavior"""
+        from werkzeug.utils import secure_filename
+        from config.settings import DATA_DIR
+
+        try:
+            if "file" not in request.files:
+                return jsonify({"status": "error", "error": "No file provided"}), 400
+
+            file = request.files["file"]
+            if not file.filename:
+                return jsonify({"status": "error", "error": "No file selected"}), 400
+
+            # Save file to temp directory
+            temp_dir = Path(DATA_DIR) / "temp_uploads"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = secure_filename(file.filename)
+            file_path = temp_dir / filename
+
+            # Handle filename conflicts
+            counter = 1
+            while file_path.exists():
+                name_part = Path(filename).stem
+                ext_part = Path(filename).suffix
+                file_path = temp_dir / f"{name_part}_{counter}{ext_part}"
+                counter += 1
+
+            file.save(str(file_path))
+
+            # Process using the EXACT same function as watched folders
+            result = process_file(str(file_path), folder_id=0)
+
+            return jsonify(result)
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            return jsonify({"status": "error", "error": str(e)}), 500
 
     # Get move reports
     @app.route("/api/move-reports", methods=["GET"])

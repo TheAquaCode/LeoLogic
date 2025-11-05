@@ -1,8 +1,9 @@
 """
 AI Processing with Ollama (Phi-3-Mini + LLaVA-Phi3)
-Generic classification that works for ANY user-defined categories
+Generic classification with detailed category breakdown
 """
 
+import re
 import ollama
 from pathlib import Path
 from typing import Dict, List
@@ -136,7 +137,7 @@ Be precise and factual.""",
     def _calculate_semantic_match(content: str, category_name: str) -> float:
         """
         Calculate how well content matches a category name.
-        Works well for both single-word and multi-word categories.
+        Parses numbered points from image analysis (1., 2., 3., etc.)
         Returns score 0.0-1.0
         """
         if not content or not category_name:
@@ -144,6 +145,32 @@ Be precise and factual.""",
 
         content_lower = content.lower()
         category_lower = category_name.lower()
+
+        # Define common synonyms for categories
+        synonyms = {
+            "female": [
+                "girl",
+                "woman",
+                "lady",
+                "ladies",
+                "feminine",
+                "she",
+                "her",
+                "women",
+            ],
+            "male": ["boy", "man", "guy", "masculine", "he", "him", "men"],
+            "anime": ["manga", "japanese animation", "animated", "cartoon"],
+            "car": ["automobile", "vehicle", "auto"],
+            "train": ["railway", "locomotive", "rail"],
+            "lecture": ["presentation", "lesson", "educational", "teaching"],
+        }
+
+        # Extract all numbered points to check separately
+        # This ensures we check point 2, 3, 4 etc., not just the summary
+        numbered_points = []
+        for line in content.split("\n"):
+            if any(line.strip().startswith(f"{i}.") for i in range(1, 10)):
+                numbered_points.append(line.lower())
 
         # Split category name into words
         category_words = set(category_lower.split())
@@ -165,6 +192,10 @@ Be precise and factual.""",
             "of",
             "with",
             "by",
+            "from",
+            "as",
+            "is",
+            "are",
         }
         category_words = category_words - stop_words
         content_words = content_words - stop_words
@@ -172,15 +203,38 @@ Be precise and factual.""",
         if not category_words:
             return 0.0
 
-        # For single-word categories, give higher weight to exact matches
+        # Check for synonym matches in ALL content (including all numbered points)
+        synonym_boost = 0.0
+        synonym_found_in_points = []
+
+        for cat_word in category_words:
+            if cat_word in synonyms:
+                # Check if any synonym appears in ANY numbered point
+                for syn in synonyms[cat_word]:
+                    # Check main content
+                    if syn in content_lower:
+                        synonym_boost = max(synonym_boost, 0.4)
+
+                    # Check each numbered point individually
+                    for i, point in enumerate(numbered_points, 1):
+                        if syn in point:
+                            synonym_boost = max(
+                                synonym_boost, 0.5
+                            )  # Even higher boost if in specific point
+                            synonym_found_in_points.append(f"Point {i}")
+
+        # For single-word categories
         is_single_word = len(category_words) == 1
 
-        # Count matches
+        # Count direct matches
         matches = len(category_words.intersection(content_words))
         total_category_words = len(category_words)
 
         # Base score: percentage of category words found
         base_score = matches / total_category_words if total_category_words > 0 else 0.0
+
+        # Add synonym boost
+        base_score = min(1.0, base_score + synonym_boost)
 
         # Boost for single-word categories that match
         if is_single_word and matches > 0:
@@ -191,14 +245,20 @@ Be precise and factual.""",
             base_score = min(1.0, base_score + 0.3)
 
         # Check for plural forms (train/trains, girl/girls)
-        category_singular = (
-            list(category_words)[0].rstrip("s") if is_single_word else None
-        )
-        if category_singular and (
-            category_singular in content_lower
-            or category_singular + "s" in content_lower
-        ):
-            base_score = min(1.0, base_score + 0.2)
+        if is_single_word and category_words:
+            category_singular = list(category_words)[0].rstrip("s")
+            if category_singular:
+                # Check main content
+                if (
+                    category_singular in content_lower
+                    or (category_singular + "s") in content_lower
+                ):
+                    base_score = min(1.0, base_score + 0.2)
+
+                # Also check numbered points
+                for point in numbered_points:
+                    if category_singular in point or (category_singular + "s") in point:
+                        base_score = min(1.0, base_score + 0.1)
 
         return base_score
 
@@ -215,14 +275,41 @@ Be precise and factual.""",
         try:
             category_names = [c["name"] for c in categories]
 
-            # Build comprehensive context
+            # Build comprehensive context - EXTRACT ALL KEY POINTS
             context = analysis.get("summary", "")
             keywords_str = ", ".join(analysis.get("keywords", []))
             image_desc = analysis.get("image_description", "")
 
-            # Prioritize image description for images
+            # Parse numbered points from image description
+            key_visual_elements = []
             if image_desc:
-                full_context = f"IMAGE CONTENT: {image_desc}\n\nSUMMARY: {context}\nKEYWORDS: {keywords_str}"
+                lines = image_desc.split("\n")
+                for line in lines:
+                    # Extract numbered points (1., 2., 3., etc.)
+                    if any(line.strip().startswith(f"{i}.") for i in range(1, 10)):
+                        # Remove the number prefix
+                        clean_line = line.strip()
+                        for i in range(1, 10):
+                            clean_line = clean_line.replace(f"{i}. ", "")
+                        key_visual_elements.append(clean_line)
+
+            # Prioritize image description for images - USE ALL POINTS
+            if image_desc:
+                # Combine all visual elements
+                visual_summary = (
+                    " ".join(key_visual_elements) if key_visual_elements else image_desc
+                )
+
+                full_context = f"""IMAGE ANALYSIS:
+Primary Content: {key_visual_elements[0] if len(key_visual_elements) > 0 else "N/A"}
+Visual Style: {key_visual_elements[1] if len(key_visual_elements) > 1 else "N/A"}
+Details Visible: {key_visual_elements[2] if len(key_visual_elements) > 2 else "N/A"}
+Search Context: {key_visual_elements[3] if len(key_visual_elements) > 3 else "N/A"}
+
+FULL DESCRIPTION: {visual_summary}
+
+SUMMARY: {context}
+KEYWORDS: {keywords_str}"""
             else:
                 full_context = f"SUMMARY: {context}\nKEYWORDS: {keywords_str}"
 
@@ -236,23 +323,24 @@ AVAILABLE CATEGORIES:
 
 MATCHING RULES:
 1. Match based on what the PRIMARY subject/content is
-2. Game screenshots with characters COUNT as character images (e.g., anime character from game = anime character)
-3. REJECT: UI menus, settings screens, code editors, blank interfaces, diagrams/charts WITHOUT the main subject
-4. ACCEPT: In-game screenshots showing the subject, artwork, photos, renders
-5. For single-word categories (like "trains"), match if that's the main visual subject
-6. If no clear match or PRIMARY content doesn't fit any category, respond "NONE"
+2. Consider synonyms and related terms (e.g., "female" includes girls, women, lady, etc.)
+3. Game screenshots with characters COUNT as character images
+4. REJECT: UI menus, settings screens, code editors, blank interfaces
+5. ACCEPT: In-game screenshots showing the subject, artwork, photos, renders
+6. Match EXACTLY to one of the available category names above
 
-Examples:
-- "trains" category + image of train → MATCH
-- "anime girl" category + game screenshot showing anime girl character → MATCH  
-- "anime girl" category + game menu/settings screen → NO MATCH
-- "lecture" category + statistics diagram → MATCH
-- "lecture" category + anime character → NO MATCH
+Category Matching Examples:
+- "female" category matches: girl, woman, lady, feminine character, female character
+- "anime girl" category matches: anime female, manga character, animated girl
+- "trains" category matches: train, railway, locomotive
+- "lecture" category matches: presentation, educational content, diagram, lesson
+
+YOU MUST respond with EXACTLY ONE category name from the available list, or NONE.
 
 Respond in this format:
-CATEGORY: <exact category name from list above, or NONE>
+CATEGORY: <EXACT category name from available list, or NONE>
 CONFIDENCE: <0-100>
-REASONING: <why the PRIMARY content does/doesn't match>"""
+REASONING: <why this matches the category>"""
 
             response = state.ollama_client.generate(model=PHI3_MODEL, prompt=prompt)
 
@@ -262,27 +350,52 @@ REASONING: <why the PRIMARY content does/doesn't match>"""
             # Parse AI response
             predicted_category = None
             ai_confidence = 0.0
+            ai_reasoning = ""
 
             for line in output.split("\n"):
                 if line.startswith("CATEGORY:"):
-                    predicted_category = line.replace("CATEGORY:", "").strip()
+                    cat_str = line.replace("CATEGORY:", "").strip()
+                    # Extract just the category name (before any parentheses or extra explanation)
+                    if "(" in cat_str:
+                        predicted_category = cat_str.split("(")[0].strip()
+                    else:
+                        predicted_category = cat_str
                 elif line.startswith("CONFIDENCE:"):
                     try:
                         conf_str = line.replace("CONFIDENCE:", "").strip()
-                        conf_str = "".join(
-                            c for c in conf_str if c.isdigit() or c == "."
-                        )
-                        ai_confidence = float(conf_str) / 100.0
-                    except:
+                        # Extract only the first number (handle "85" or "85%" or "85.5")
+                        import re
+
+                        match = re.search(r"(\d+\.?\d*)", conf_str)
+                        if match:
+                            conf_value = float(match.group(1))
+                            # If value is > 100, it's probably already a percentage gone wrong
+                            if conf_value > 100:
+                                ai_confidence = 0.5  # Fallback
+                            else:
+                                ai_confidence = conf_value / 100.0
+                        else:
+                            ai_confidence = 0.5
+                    except Exception as e:
+                        logger.warning(f"Failed to parse confidence: {e}")
                         ai_confidence = 0.5
+                elif line.startswith("REASONING:"):
+                    ai_reasoning = line.replace("REASONING:", "").strip()
 
             # If AI said NONE or empty, return no match
             if not predicted_category or predicted_category.upper() == "NONE":
+                print("\n" + "=" * 80)
+                print("⚠️  AI RETURNED 'NONE' - NOT MATCHING ANY CATEGORY")
+                print("=" * 80)
+                print(f"AI's reasoning: {ai_reasoning}")
+                print(f"Available categories: {', '.join(category_names)}")
+                print("=" * 80 + "\n")
                 return {"category": None, "confidence": 0.0}
 
             # Find best matching category from user's list
             best_match = None
             best_score = 0.0
+            category_details = {}
 
             for cat in categories:
                 # Check if AI's prediction matches this category
@@ -290,35 +403,107 @@ REASONING: <why the PRIMARY content does/doesn't match>"""
                 pred_lower = predicted_category.lower()
 
                 if cat_name_lower in pred_lower or pred_lower in cat_name_lower:
-                    # Calculate semantic match score
+                    # AI picked this category
                     semantic_score = AIProcessor._calculate_semantic_match(
                         full_context, cat["name"]
                     )
-
-                    # Combine AI confidence with semantic match
-                    # Weight: 60% AI confidence, 40% semantic match
                     combined_score = (ai_confidence * 0.6) + (semantic_score * 0.4)
+
+                    category_details[cat["name"]] = {
+                        "score": combined_score,
+                        "ai_picked": True,
+                        "ai_confidence": ai_confidence,
+                        "semantic_match": semantic_score,
+                        "reason": f"AI selected this. Confidence: {ai_confidence:.2%}, Semantic match: {semantic_score:.2%}",
+                    }
 
                     if combined_score > best_score:
                         best_score = combined_score
                         best_match = cat["name"]
+                else:
+                    # AI did NOT pick this category
+                    semantic_score = AIProcessor._calculate_semantic_match(
+                        full_context, cat["name"]
+                    )
+                    penalty_score = semantic_score * 0.5
+
+                    category_details[cat["name"]] = {
+                        "score": penalty_score,
+                        "ai_picked": False,
+                        "ai_confidence": 0.0,
+                        "semantic_match": semantic_score,
+                        "reason": f"AI said '{predicted_category}', not this. Only semantic match: {semantic_score:.2%} × 0.5 penalty",
+                    }
+
+            # Print detailed breakdown for ALL categories
+            print("\n" + "=" * 80)
+            print("📊 DETAILED CLASSIFICATION BREAKDOWN")
+            print("=" * 80)
+            print(f"🤖 AI Prediction: '{predicted_category}'")
+            print(f"💭 AI Reasoning: {ai_reasoning}")
+            print(f"🎯 AI Base Confidence: {ai_confidence:.2%}")
+            print("-" * 80)
+
+            # Sort categories by score
+            sorted_cats = sorted(
+                category_details.items(), key=lambda x: x[1]["score"], reverse=True
+            )
+
+            for cat_name, details in sorted_cats:
+                score = details["score"]
+                bar_length = int(score * 30)
+                bar = "█" * bar_length + "░" * (30 - bar_length)
+
+                print(f"\n📁 {cat_name}")
+                print(f"   {bar} {score:.2%}")
+
+                if details["ai_picked"]:
+                    print(f"   ✅ AI PICKED THIS CATEGORY")
+                    print(f"      • AI Confidence: {details['ai_confidence']:.2%}")
+                    print(f"      • Semantic Match: {details['semantic_match']:.2%}")
+                    print(
+                        f"      • Formula: (60% × {details['ai_confidence']:.2%}) + (40% × {details['semantic_match']:.2%})"
+                    )
+                    print(f"      • Final Score: {score:.2%}")
+                else:
+                    print(f"   ❌ AI DID NOT PICK THIS")
+                    print(f"      • AI said: '{predicted_category}'")
+                    print(f"      • Semantic Match: {details['semantic_match']:.2%}")
+                    print(f"      • Penalty Applied: × 0.5")
+                    print(f"      • Final Score: {score:.2%}")
+
+                print(f"   📝 {details['reason']}")
+
+            print("\n" + "=" * 80)
+            print(
+                f"🏆 WINNER: {best_match if best_match else 'NONE'} with {best_score:.2%}"
+            )
+            print(f"⚖️  Threshold: 30.00%")
+
+            if best_match and best_score >= 0.30:
+                print(f"✅ PASSED - File will be moved to '{best_match}'")
+            elif best_match:
+                print(f"❌ FAILED - Score {best_score:.2%} is below 30% threshold")
+                print(f"📂 File will stay in temp_uploads")
+                best_match = None
+                best_score = 0.0
+            else:
+                print(f"❌ NO MATCH - All scores too low or AI said NONE")
+
+            print("=" * 80 + "\n")
 
             # Apply confidence thresholds
             if best_match:
-                # Minimum confidence of 0.30 to consider it a match (lowered for single-word categories)
                 if best_score < 0.30:
                     logger.debug(f"Score too low ({best_score:.2f}), rejecting match")
                     return {"category": None, "confidence": 0.0}
 
-                # Cap maximum at 0.95 (increased slightly for very clear matches)
                 best_score = min(best_score, 0.95)
-
                 logger.info(
                     f"Classified as '{best_match}' with confidence {best_score:.2%}"
                 )
                 return {"category": best_match, "confidence": best_score}
 
-            # No good match found
             return {"category": None, "confidence": 0.0}
 
         except Exception as e:
