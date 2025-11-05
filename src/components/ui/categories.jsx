@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Tag, Plus, MoreHorizontal, Folder, Trash2, X, Edit2, FileText } from 'lucide-react';
+import { Tag, Plus, MoreHorizontal, Folder, Trash2, X, Edit2, FileText, ExternalLink } from 'lucide-react';
 
-const Categories = ({ categories = [], onAddCategory, onRenameCategory, onDelete, onEditPath }) => {
+const Categories = ({ categories = [], onAddCategory, onRenameCategory, onDelete, onEditPath, onOpenLocation }) => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -123,6 +123,16 @@ const Categories = ({ categories = [], onAddCategory, onRenameCategory, onDelete
                         >
                           <FileText className="w-4 h-4" />
                           <span>Rename</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onOpenLocation(category.path);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Open Location</span>
                         </button>
                         <button
                           onClick={() => {

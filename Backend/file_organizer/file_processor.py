@@ -148,6 +148,7 @@ def process_file(file_path: str, folder_id: int):
                     "summary": ai_analysis.get("summary", ""),
                     "keywords": ai_analysis.get("keywords", []),
                     "rag_path": rag_path,
+                    "destination": final_file_path  # ADD THIS LINE
                 }
 
         # Low confidence - file stays in original location, but RAG is already created

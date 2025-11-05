@@ -44,7 +44,19 @@ class FileHandler(FileSystemEventHandler):
             self.pending_files[file_path] = time.time()
     
     def process_pending_files(self):
-        """Process files that haven't been modified for delay period"""
+        # Check if auto-organize is enabled
+        if not state.auto_organize:
+            # Clear pending files if auto-organize is disabled
+            self.pending_files.clear()
+            return
+        
+        # Check if this folder is active
+        folder = next((f for f in state.watched_folders if f["id"] == self.folder_id), None)
+        if not folder or folder.get("status") != "Active":
+            # Don't process if folder is paused or not found
+            self.pending_files.clear()
+            return
+        
         current_time = time.time()
         files_to_process = []
         

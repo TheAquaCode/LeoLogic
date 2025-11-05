@@ -15,6 +15,7 @@ class FileOrganizerState:
         self.ollama_client = None
         self.whisper_model = None
         self.is_initialized = False
+        self.auto_organize = False
         self.processing_stats = {
             "total": 0,
             "success": 0,

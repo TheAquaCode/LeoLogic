@@ -1,6 +1,6 @@
 // src/components/ui/watchedfolders.jsx - Fixed with null safety
 import React, { useState } from 'react';
-import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2, Zap, Loader } from 'lucide-react';
+import { Eye, Plus, MoreHorizontal, Folder, Play, Pause, Edit2, Trash2, Zap, Loader, ExternalLink } from 'lucide-react';
 import { getStatusColor } from '../../utils/helpers';
 
 const WatchedFolders = ({ 
@@ -10,6 +10,7 @@ const WatchedFolders = ({
   onEditPath, 
   onDelete,
   onProcessFolder,
+  onOpenLocation,
   processingFolder,
   backendOnline = false
 }) => {
@@ -94,6 +95,16 @@ const WatchedFolders = ({
                         )}
                         <button
                           onClick={() => {
+                            onOpenLocation(folder.path);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Open Location</span>
+                        </button>
+                        <button
+                          onClick={() => {
                             onToggleStatus(folder.id);
                             setOpenMenuId(null);
                           }}
@@ -137,7 +148,11 @@ const WatchedFolders = ({
                 </div>
               </div>
               <div className="flex items-center justify-between mt-3 text-sm">
-                <span className="text-gray-600">{folder.files || 0} files</span>
+                {/* Debug logging */}
+                {console.log(`Rendering folder ${folder.name}, fileCount:`, folder.fileCount, typeof folder.fileCount)}
+                <span className="text-gray-600">
+                  {Number(folder.fileCount ?? 0)} {Number(folder.fileCount ?? 0) === 1 ? 'file' : 'files'}
+                </span>
                 <div className="flex items-center space-x-3">
                   <span className="text-gray-500">{folder.lastActivity || 'Never'}</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(folder.status)}`}>

@@ -27,12 +27,31 @@ const FileExplorer = ({ isChatMaximized }) => {
     return loadFromStorage('QUICK_SORT_EXPANDED') ?? true;
   });
 
+  // Ensure active/paused states are properly initialized from storage
+  const initializeFromStorage = () => {
+    const savedFolders = loadFromStorage('watched_folders', []);
+    const savedCategories = loadFromStorage('categories', []);
+
+    // Ensure each folder has a status and file count
+    const foldersWithDefaults = savedFolders.map(folder => ({
+      ...folder,
+      status: folder.status || 'Active', // Default to Active if not set
+      fileCount: folder.fileCount !== undefined && folder.fileCount !== null ? folder.fileCount : 0 // Ensure fileCount exists and is 0 if not set
+    }));
+    saveToStorage('watched_folders', foldersWithDefaults);
+
+    return { folders: foldersWithDefaults, categories: savedCategories };
+  };
+
+  const initialData = initializeFromStorage();
+
   // Backend connection state
   const [backendStatus, setBackendStatus] = useState('checking');
-  const [watchedFolders, setWatchedFolders] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [watchedFolders, setWatchedFolders] = useState(initialData.folders);
+  const [categories, setCategories] = useState(initialData.categories);
   const [error, setError] = useState(null);
   const [processingFolder, setProcessingFolder] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Save expanded state whenever it changes
   useEffect(() => {
@@ -42,7 +61,7 @@ const FileExplorer = ({ isChatMaximized }) => {
   // Check backend status and load data
   useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshTrigger]);
 
   const checkBackendStatus = async () => {
     try {
@@ -56,35 +75,49 @@ const FileExplorer = ({ isChatMaximized }) => {
   };
 
   const loadData = async () => {
-    const isOnline = await checkBackendStatus();
+    console.log('Loading data, trigger:', refreshTrigger);
     
-    if (isOnline) {
-      try {
-        const [foldersData, categoriesData] = await Promise.all([
+    try {
+      const isOnline = await checkBackendStatus();
+      if (isOnline) {
+        // Load from backend
+        const [foldersResult, categoriesResult] = await Promise.allSettled([
           apiService.getWatchedFolders(),
           apiService.getCategories()
         ]);
-        
-        // Ensure arrays
-        setWatchedFolders(Array.isArray(foldersData) ? foldersData : []);
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        
-      } catch (err) {
-        console.error('Error loading data:', err);
-        // Load from localStorage as fallback
-        const savedFolders = loadFromStorage('watched_folders', []);
-        const savedCategories = loadFromStorage('categories', []);
-        setWatchedFolders(Array.isArray(savedFolders) ? savedFolders : []);
-        setCategories(Array.isArray(savedCategories) ? savedCategories : []);
+
+        if (foldersResult.status === 'fulfilled') {
+          const foldersData = foldersResult.value;
+          setWatchedFolders(prev => {
+            const newFolders = Array.isArray(foldersData) ? foldersData : [];
+            const updatedFolders = newFolders.map(newFolder => {
+              const localFolder = prev.find(f => f.id === newFolder.id);
+              const fileCount = Number(newFolder.fileCount ?? 0);
+              
+              console.log(`Processing folder ${newFolder.name}, count:`, fileCount);
+              
+              return {
+                ...newFolder,
+                status: localFolder?.status || 'Active',
+                fileCount: isNaN(fileCount) ? 0 : fileCount
+              };
+            });
+            saveToStorage('watched_folders', updatedFolders);
+            return updatedFolders;
+          });
+        }
+          
+        if (categoriesResult.status === 'fulfilled') {
+          const categoriesData = categoriesResult.value;
+          setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        }
       }
-    } else {
-      // Load from localStorage
-      const savedFolders = loadFromStorage('watched_folders', []);
-      const savedCategories = loadFromStorage('categories', []);
-      setWatchedFolders(Array.isArray(savedFolders) ? savedFolders : []);
-      setCategories(Array.isArray(savedCategories) ? savedCategories : []);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setError(error.message);
     }
   };
+  
 
   const sortOptions = [
     { id: 'type', icon: Image, title: 'By Type', description: 'Sort by file type' },
@@ -117,26 +150,37 @@ const FileExplorer = ({ isChatMaximized }) => {
 
       const folderName = folderPath.split('/').pop() || folderPath.split('\\').pop();
       
+      // Create new folder object with guaranteed status
+      const newFolder = {
+        id: Date.now(),
+        name: folderName,
+        path: folderPath,
+        files: 0,
+        lastActivity: 'Just now',
+        status: 'Active'  // Always initialize with Active status
+      };
+
+      // Update local state immediately
+      const updatedFolders = [...watchedFolders, newFolder];
+      setWatchedFolders(updatedFolders);
+      saveToStorage('watched_folders', updatedFolders);
+
+      // Sync with backend if available
       if (backendStatus === 'online') {
-        // Add via backend
-        const result = await apiService.addWatchedFolder({
-          name: folderName,
-          path: folderPath
-        });
-        
-        setWatchedFolders([...watchedFolders, result.folder]);
-      } else {
-        // Fallback: local only
-        const newFolder = {
-          id: Date.now(),
-          name: folderName,
-          path: folderPath,
-          files: 0,
-          lastActivity: 'Just now',
-          status: 'Active'
-        };
-        setWatchedFolders([...watchedFolders, newFolder]);
-        saveToStorage('watched_folders', [...watchedFolders, newFolder]);
+        try {
+          const result = await apiService.addWatchedFolder({
+            name: folderName,
+            path: folderPath
+          });
+          
+          // Update with backend response while preserving status
+          setWatchedFolders(prev => 
+            prev.map(f => f.id === newFolder.id ? { ...result.folder, status: 'Active' } : f)
+          );
+        } catch (error) {
+          console.error('Error syncing with backend:', error);
+          // Keep local changes even if backend sync fails
+        }
       }
     } catch (error) {
       console.error('Error adding folder:', error);
@@ -145,25 +189,29 @@ const FileExplorer = ({ isChatMaximized }) => {
   };
 
   const handleToggleFolderStatus = async (folderId) => {
-    try {
-      if (backendStatus === 'online') {
+    // Immediately update local state for instant UI feedback
+    const currentFolders = watchedFolders;
+    const updated = currentFolders.map(folder => 
+      folder.id === folderId 
+        ? { ...folder, status: folder.status === 'Active' ? 'Paused' : 'Active' }
+        : folder
+    );
+    setWatchedFolders(updated);
+    saveToStorage('watched_folders', updated);
+
+    // Then sync with backend if available
+    if (backendStatus === 'online') {
+      try {
         const result = await apiService.toggleFolderStatus(folderId);
-        setWatchedFolders(watchedFolders.map(f => 
-          f.id === folderId ? result.folder : f
+        setWatchedFolders(prev => prev.map(f => 
+          f.id === folderId ? { ...f, ...result.folder } : f
         ));
-      } else {
-        // Local fallback
-        const updated = watchedFolders.map(folder => 
-          folder.id === folderId 
-            ? { ...folder, status: folder.status === 'Active' ? 'Paused' : 'Active' }
-            : folder
-        );
-        setWatchedFolders(updated);
-        saveToStorage('watched_folders', updated);
+      } catch (error) {
+        console.error('Error syncing folder status with backend:', error);
+        // Revert to previous state on error
+        setWatchedFolders(currentFolders);
+        saveToStorage('watched_folders', currentFolders);
       }
-    } catch (error) {
-      console.error('Error toggling folder status:', error);
-      alert('Error: ' + error.message);
     }
   };
 
@@ -221,6 +269,23 @@ const FileExplorer = ({ isChatMaximized }) => {
     }
   };
 
+  const handleOpenFolderLocation = async (folderPath) => {
+    try {
+      const openFolderAPI = window.electron?.openFolder || 
+                           window.electronAPI?.openFolder || 
+                           window.api?.openFolder;
+    
+      if (openFolderAPI) {
+        await openFolderAPI(folderPath);
+      } else {
+        alert('Opening folder location is only available in the Electron app');
+      }
+    } catch (error) {
+      console.error('Error opening folder location:', error);
+      alert('Error opening folder location: ' + error.message);
+    }
+  };
+
   const handleProcessFolder = async (folderId) => {
     if (backendStatus !== 'online') {
       alert('Backend must be running to process files');
@@ -235,11 +300,33 @@ const FileExplorer = ({ isChatMaximized }) => {
     
     try {
       const result = await apiService.processFolderFiles(folderId);
+      
+      // Trigger a refresh of the folders data
+      setRefreshTrigger(prev => prev + 1);
+      
+      // Also update the current state
+      setWatchedFolders(prev => {
+        const updatedFolders = prev.map(folder => {
+          if (folder.id === folderId) {
+            return {
+              ...folder,
+              fileCount: result.fileCount || 0
+            };
+          }
+          return folder;
+        });
+        saveToStorage('watched_folders', updatedFolders);
+        return updatedFolders;
+      });
+      
       alert(`Processed ${result.processed} files!\n\nCheck the console for details.`);
       console.log('Processing results:', result);
     } catch (error) {
-      console.error('Error processing folder:', error);
-      alert('Error processing folder: ' + error.message);
+      // Only show error if it's not an aborted request
+      if (!error.message.includes('aborted')) {
+        console.error('Error processing folder:', error);
+        alert('Error processing folder: ' + error.message);
+      }
     } finally {
       setProcessingFolder(null);
     }
@@ -301,6 +388,41 @@ const FileExplorer = ({ isChatMaximized }) => {
       }
     } catch (error) {
       console.error('Error editing category:', error);
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const handleRenameCategory = async (categoryId, newName) => {
+    try {
+      // Optimistically update UI
+      const updatedCategories = categories.map(category =>
+        category.id === categoryId ? { ...category, name: newName } : category
+      );
+      setCategories(updatedCategories);
+      saveToStorage('categories', updatedCategories);
+
+      // Sync with backend if online
+      if (backendStatus === 'online') {
+        try {
+          const result = await apiService.updateCategory(categoryId, { name: newName });
+          if (result.category) {
+            // Update with backend response
+            setCategories(prevCategories =>
+              prevCategories.map(category =>
+                category.id === categoryId ? { ...category, ...result.category } : category
+              )
+            );
+          }
+        } catch (error) {
+          // Revert on backend error
+          console.error('Error updating category:', error);
+          setCategories(categories);
+          saveToStorage('categories', categories);
+          alert('Error: ' + error.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error renaming category:', error);
       alert('Error: ' + error.message);
     }
   };
@@ -410,6 +532,7 @@ const FileExplorer = ({ isChatMaximized }) => {
           onEditPath={handleEditFolderPath}
           onDelete={handleDeleteFolder}
           onProcessFolder={handleProcessFolder}
+          onOpenLocation={handleOpenFolderLocation}
           processingFolder={processingFolder}
           backendOnline={backendStatus === 'online'}
         />
@@ -418,6 +541,8 @@ const FileExplorer = ({ isChatMaximized }) => {
           onAddCategory={handleAddCategory}
           onEditPath={handleEditCategoryPath}
           onDelete={handleDeleteCategory}
+          onRenameCategory={handleRenameCategory}
+          onOpenLocation={handleOpenFolderLocation}
         />
       </div>
     </div>

@@ -1,20 +1,61 @@
-"""
-API Routes for File Organizer
-"""
-
 import os
 import json
 import time
 from datetime import datetime
 from pathlib import Path
 from flask import request, jsonify
-from config.settings import CONFIG_FILE
+from config.settings import CONFIG_FILE, DATA_DIR
 from .state import state
 from .file_watcher import start_watching, stop_watching
 from .file_processor import process_file
 from .bulk_processor import bulk_processor
 from .rag_generator import RAGGenerator
+from .file_counter import count_files_in_folder
 
+# History storage
+HISTORY_FILE = DATA_DIR / "file_history.json"
+
+def load_history():
+    """Load file movement history"""
+    if HISTORY_FILE.exists():
+        with open(HISTORY_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_history(history):
+    """Save file movement history"""
+    with open(HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def add_to_history(movement):
+    """Add a movement to history"""
+    history = load_history()
+    movement['id'] = int(time.time() * 1000)
+    movement['timestamp'] = time.time()
+    history.insert(0, movement)
+    
+    if len(history) > 1000:
+        history = history[:1000]
+    
+    save_history(history)
+    return movement
+
+def format_time_ago(timestamp):
+    """Format timestamp as relative time"""
+    now = time.time()
+    diff = now - timestamp
+    
+    if diff < 60:
+        return "Just now"
+    elif diff < 3600:
+        mins = int(diff / 60)
+        return f"{mins} minute{'s' if mins != 1 else ''} ago"
+    elif diff < 86400:
+        hours = int(diff / 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    else:
+        days = int(diff / 86400)
+        return f"{days} day{'s' if days != 1 else ''} ago"
 
 def load_config():
     """Load watched folders and categories from disk"""
@@ -23,43 +64,178 @@ def load_config():
             config = json.load(f)
             state.watched_folders = config.get("watched_folders", [])
             state.categories = config.get("categories", [])
+            state.auto_organize = config.get("auto_organize", False)
             print(f"📂 Loaded {len(state.watched_folders)} watched folders")
-            print(f"🏷️  Loaded {len(state.categories)} categories")
-
+            print(f"🏷️ Loaded {len(state.categories)} categories")
+            print(f"⚡ Auto-organize: {'ON' if state.auto_organize else 'OFF'}")
 
 def save_config():
     """Save watched folders and categories"""
-    config = {"watched_folders": state.watched_folders, "categories": state.categories}
+    config = {
+        "watched_folders": state.watched_folders,
+        "categories": state.categories,
+        "auto_organize": state.auto_organize
+    }
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
-
 
 def register_routes(app):
     """Register all API routes"""
 
     @app.route("/api/health", methods=["GET"])
     def health():
-        return jsonify(
-            {
-                "status": "online",
-                "initialized": state.is_initialized,
-                "stats": state.processing_stats,
-            }
-        )
+        return jsonify({
+            "status": "online",
+            "initialized": state.is_initialized,
+            "stats": state.processing_stats,
+        })
 
-    # Watched Folders
+    # ==================== SETTINGS ====================
+    
+    @app.route("/api/settings/auto-organize", methods=["GET"])
+    def get_auto_organize():
+        """Get auto-organize setting"""
+        return jsonify({"enabled": state.auto_organize})
+    
+    @app.route("/api/settings/auto-organize", methods=["POST"])
+    def set_auto_organize():
+        """Set auto-organize setting"""
+        data = request.json
+        state.auto_organize = data.get("enabled", False)
+        save_config()
+        print(f"⚡ Auto-organize: {'ON' if state.auto_organize else 'OFF'}")
+        return jsonify({"enabled": state.auto_organize})
+
+    # ==================== HISTORY ====================
+    
+    @app.route("/api/history", methods=["GET"])
+    def get_history():
+        """Get file movement history"""
+        try:
+            limit = int(request.args.get('limit', 100))
+            history = load_history()
+            
+            formatted_history = []
+            for item in history[:limit]:
+                formatted_history.append({
+                    'id': item.get('id'),
+                    'filename': item.get('filename', 'Unknown'),
+                    'fromPath': item.get('from_path', ''),
+                    'toPath': item.get('to_path', ''),
+                    'category': item.get('category', 'Unknown'),
+                    'confidence': item.get('confidence', '0%'),
+                    'detection': item.get('detection', 'AI Classification'),
+                    'status': item.get('status', 'completed'),
+                    'timestamp': item.get('timestamp', time.time()),
+                    'timeAgo': format_time_ago(item.get('timestamp', time.time()))
+                })
+            
+            return jsonify(formatted_history)
+        except Exception as e:
+            print(f"Error loading history: {e}")
+            return jsonify([])
+    
+    @app.route("/api/history/stats", methods=["GET"])
+    def get_history_stats():
+        """Get history statistics"""
+        try:
+            history = load_history()
+            
+            completed = sum(1 for h in history if h.get('status') == 'completed')
+            undone = sum(1 for h in history if h.get('status') == 'undone')
+            total = len(history)
+            
+            success_rate = f"{int((completed / total * 100) if total > 0 else 0)}%"
+            
+            return jsonify({
+                'total': total,
+                'completed': completed,
+                'undone': undone,
+                'pending': 0,
+                'success_rate': success_rate
+            })
+        except Exception as e:
+            print(f"Error loading history stats: {e}")
+            return jsonify({
+                'total': 0,
+                'completed': 0,
+                'undone': 0,
+                'pending': 0,
+                'success_rate': '0%'
+            })
+    
+    @app.route("/api/history/<int:movement_id>/undo", methods=["POST"])
+    def undo_movement(movement_id):
+        """Undo a file movement"""
+        try:
+            history = load_history()
+            movement = next((h for h in history if h.get('id') == movement_id), None)
+            
+            if not movement:
+                return jsonify({'error': 'Movement not found'}), 404
+            
+            if movement.get('status') == 'undone':
+                return jsonify({'error': 'Already undone'}), 400
+            
+            from_path = Path(movement['to_path'])
+            to_path = Path(movement['from_path'])
+            
+            if from_path.exists():
+                to_path.parent.mkdir(parents=True, exist_ok=True)
+                import shutil
+                shutil.move(str(from_path), str(to_path))
+                
+                movement['status'] = 'undone'
+                save_history(history)
+                
+                return jsonify({'success': True, 'message': 'File moved back'})
+            else:
+                return jsonify({'error': 'File not found at destination'}), 404
+                
+        except Exception as e:
+            print(f"Error undoing movement: {e}")
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route("/api/history/<int:movement_id>/open", methods=["POST"])
+    def open_file_location(movement_id):
+        """Get file location for opening"""
+        try:
+            history = load_history()
+            movement = next((h for h in history if h.get('id') == movement_id), None)
+            
+            if not movement:
+                return jsonify({'error': 'Movement not found'}), 404
+            
+            file_path = Path(movement['to_path'])
+            directory = str(file_path.parent)
+            
+            return jsonify({'directory': directory})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # ==================== WATCHED FOLDERS ====================
+    
     @app.route("/api/watched-folders", methods=["GET"])
     def get_folders():
-        return jsonify(state.watched_folders)
+        folders = []
+        for folder in state.watched_folders:
+            folder_data = folder.copy()
+            file_count = count_files_in_folder(folder['path'])
+            print(f"Folder {folder['name']}: counted {file_count} files")  # Debug log
+            folder_data['fileCount'] = file_count
+            folders.append(folder_data)
+        return jsonify(folders)
 
     @app.route("/api/watched-folders", methods=["POST"])
     def add_folder():
         data = request.json
+        folder_path = data.get("path")
         folder = {
             "id": int(time.time() * 1000),
             "name": data.get("name"),
-            "path": data.get("path"),
+            "path": folder_path,
             "status": "Active",
+            "fileCount": count_files_in_folder(folder_path)
         }
         state.watched_folders.append(folder)
         save_config()
@@ -91,7 +267,8 @@ def register_routes(app):
             return jsonify({"message": "Folder deleted successfully"})
         return jsonify({"error": "Folder not found"}), 404
 
-    # Categories
+    # ==================== CATEGORIES ====================
+    
     @app.route("/api/categories", methods=["GET"])
     def get_categories():
         return jsonify(state.categories)
@@ -130,19 +307,90 @@ def register_routes(app):
             return jsonify({"message": "Category deleted successfully"})
         return jsonify({"error": "Category not found"}), 404
 
-    # Manual folder processing
+    # ==================== FILE PROCESSING ====================
+    
     @app.route("/api/process-folder/<int:folder_id>", methods=["POST"])
     def process_folder_route(folder_id):
         folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
         if not folder or not Path(folder["path"]).exists():
             return jsonify({"error": "Folder not found"}), 404
+        
         results = []
         for file_path in Path(folder["path"]).glob("*"):
             if file_path.is_file():
-                results.append(process_file(str(file_path), folder_id))
-        return jsonify({"processed": len(results), "results": results})
+                result = process_file(str(file_path), folder_id)
+                results.append(result)
+                
+                if result.get('status') == 'success':
+                    add_to_history({
+                        'filename': result['file_name'],
+                        'from_path': str(file_path),
+                        'to_path': result.get('destination', str(file_path)),
+                        'category': result.get('category', 'Unknown'),
+                        'confidence': f"{int(result.get('confidence', 0) * 100)}%",
+                        'detection': 'AI Classification',
+                        'status': 'completed'
+                    })
+        
+        # Get updated file count after processing
+        updated_file_count = count_files_in_folder(folder["path"])
+        
+        return jsonify({
+            "processed": len(results), 
+            "results": results,
+            "fileCount": updated_file_count
+        })
 
-    # RAG Search (for chatbot integration)
+    @app.route("/api/upload-and-process", methods=["POST"])
+    def upload_and_process():
+        """Upload and process a single file"""
+        from werkzeug.utils import secure_filename
+
+        try:
+            if "file" not in request.files:
+                return jsonify({"status": "error", "error": "No file provided"}), 400
+
+            file = request.files["file"]
+            if not file.filename:
+                return jsonify({"status": "error", "error": "No file selected"}), 400
+
+            temp_dir = Path(DATA_DIR) / "temp_uploads"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = secure_filename(file.filename)
+            file_path = temp_dir / filename
+
+            counter = 1
+            while file_path.exists():
+                name_part = Path(filename).stem
+                ext_part = Path(filename).suffix
+                file_path = temp_dir / f"{name_part}_{counter}{ext_part}"
+                counter += 1
+
+            file.save(str(file_path))
+
+            result = process_file(str(file_path), folder_id=0)
+            
+            if result.get('status') == 'success':
+                add_to_history({
+                    'filename': result['file_name'],
+                    'from_path': str(file_path),
+                    'to_path': result.get('destination', str(file_path)),
+                    'category': result.get('category', 'Unknown'),
+                    'confidence': f"{int(result.get('confidence', 0) * 100)}%",
+                    'detection': 'AI Classification',
+                    'status': 'completed'
+                })
+
+            return jsonify(result)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({"status": "error", "error": str(e)}), 500
+
+    # ==================== RAG & STATS ====================
+    
     @app.route("/api/rag/search", methods=["POST"])
     def search_rag():
         query = request.json.get("query", "")
@@ -154,139 +402,6 @@ def register_routes(app):
         results = RAGGenerator.search_rag(query, max_results)
         return jsonify({"results": results})
 
-    # Get processing statistics
     @app.route("/api/stats", methods=["GET"])
     def get_stats():
         return jsonify(state.processing_stats)
-
-    # Bulk processing with progress
-    @app.route("/api/process-folder-bulk/<int:folder_id>", methods=["POST"])
-    def process_folder_bulk(folder_id):
-        """Process entire folder with multi-threading"""
-        folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
-        if not folder or not Path(folder["path"]).exists():
-            return jsonify({"error": "Folder not found"}), 404
-
-        file_paths = [str(p) for p in Path(folder["path"]).glob("*") if p.is_file()]
-
-        if not file_paths:
-            return jsonify({"error": "No files found"}), 404
-
-        result = bulk_processor.process_files(file_paths, folder_id)
-        return jsonify(result)
-
-    # Progress tracking
-    @app.route("/api/progress", methods=["GET"])
-    def get_progress():
-        """Get current processing progress"""
-        return jsonify(
-            {
-                "queue_length": len(state.processing_queue),
-                "bulk_progress": bulk_processor.get_progress(),
-                "stats": state.processing_stats,
-            }
-        )
-
-    # Upload multiple files
-    @app.route("/api/upload-bulk", methods=["POST"])
-    def upload_bulk():
-        """Upload and process multiple files"""
-        from werkzeug.utils import secure_filename
-        from config.settings import DATA_DIR
-
-        if "files" not in request.files:
-            return jsonify({"error": "No files provided"}), 400
-
-        files = request.files.getlist("files")
-        folder_id = int(request.form.get("folder_id", 0))
-
-        temp_dir = Path(DATA_DIR) / "temp_uploads"
-        temp_dir.mkdir(exist_ok=True)
-
-        file_paths = []
-        for file in files:
-            if file.filename:
-                filename = secure_filename(file.filename)
-                file_path = temp_dir / filename
-                file.save(file_path)
-                file_paths.append(str(file_path))
-
-        result = bulk_processor.process_files(file_paths, folder_id)
-        return jsonify(result)
-
-    # Upload and process single file (ADDED FOR UPLOAD & SCAN)
-    @app.route("/api/upload-and-process", methods=["POST"])
-    def upload_and_process():
-        """Upload and process a single file - mirrors watched folders behavior"""
-        from werkzeug.utils import secure_filename
-        from config.settings import DATA_DIR
-
-        try:
-            if "file" not in request.files:
-                return jsonify({"status": "error", "error": "No file provided"}), 400
-
-            file = request.files["file"]
-            if not file.filename:
-                return jsonify({"status": "error", "error": "No file selected"}), 400
-
-            # Save file to temp directory
-            temp_dir = Path(DATA_DIR) / "temp_uploads"
-            temp_dir.mkdir(parents=True, exist_ok=True)
-
-            filename = secure_filename(file.filename)
-            file_path = temp_dir / filename
-
-            # Handle filename conflicts
-            counter = 1
-            while file_path.exists():
-                name_part = Path(filename).stem
-                ext_part = Path(filename).suffix
-                file_path = temp_dir / f"{name_part}_{counter}{ext_part}"
-                counter += 1
-
-            file.save(str(file_path))
-
-            # Process using the EXACT same function as watched folders
-            result = process_file(str(file_path), folder_id=0)
-
-            return jsonify(result)
-
-        except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-            return jsonify({"status": "error", "error": str(e)}), 500
-
-    # Get move reports
-    @app.route("/api/move-reports", methods=["GET"])
-    def get_move_reports():
-        """List all move reports"""
-        from config.settings import MOVE_LOGS_DIR
-
-        reports = []
-        for report_file in sorted(MOVE_LOGS_DIR.glob("*.txt"), reverse=True):
-            reports.append(
-                {
-                    "filename": report_file.name,
-                    "path": str(report_file),
-                    "created": datetime.fromtimestamp(
-                        report_file.stat().st_mtime
-                    ).isoformat(),
-                }
-            )
-
-        return jsonify({"reports": reports})
-
-    # Download move report
-    @app.route("/api/move-reports/<filename>", methods=["GET"])
-    def download_move_report(filename):
-        """Download a specific move report"""
-        from config.settings import MOVE_LOGS_DIR
-        from flask import send_file
-
-        report_path = MOVE_LOGS_DIR / filename
-
-        if not report_path.exists():
-            return jsonify({"error": "Report not found"}), 404
-
-        return send_file(report_path, as_attachment=True)
