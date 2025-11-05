@@ -29,24 +29,23 @@ def load_config():
 
 def save_config():
     """Save watched folders and categories"""
-    config = {
-        "watched_folders": state.watched_folders,
-        "categories": state.categories
-    }
+    config = {"watched_folders": state.watched_folders, "categories": state.categories}
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
 
 def register_routes(app):
     """Register all API routes"""
-    
+
     @app.route("/api/health", methods=["GET"])
     def health():
-        return jsonify({
-            "status": "online",
-            "initialized": state.is_initialized,
-            "stats": state.processing_stats
-        })
+        return jsonify(
+            {
+                "status": "online",
+                "initialized": state.is_initialized,
+                "stats": state.processing_stats,
+            }
+        )
 
     # Watched Folders
     @app.route("/api/watched-folders", methods=["GET"])
@@ -60,12 +59,12 @@ def register_routes(app):
             "id": int(time.time() * 1000),
             "name": data.get("name"),
             "path": data.get("path"),
-            "status": "Active"
+            "status": "Active",
         }
         state.watched_folders.append(folder)
         save_config()
         start_watching(folder["id"], folder["path"])
-        return jsonify(folder)
+        return jsonify({"folder": folder})
 
     @app.route("/api/watched-folders/<int:folder_id>/toggle", methods=["POST"])
     def toggle_folder(folder_id):
@@ -77,7 +76,19 @@ def register_routes(app):
             else:
                 stop_watching(folder["id"])
             save_config()
-            return jsonify(folder)
+            return jsonify({"folder": folder})
+        return jsonify({"error": "Folder not found"}), 404
+
+    @app.route("/api/watched-folders/<int:folder_id>", methods=["DELETE"])
+    def delete_folder(folder_id):
+        folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
+        if folder:
+            stop_watching(folder_id)
+            state.watched_folders = [
+                f for f in state.watched_folders if f["id"] != folder_id
+            ]
+            save_config()
+            return jsonify({"message": "Folder deleted successfully"})
         return jsonify({"error": "Folder not found"}), 404
 
     # Categories
@@ -91,11 +102,33 @@ def register_routes(app):
         category = {
             "id": int(time.time() * 1000),
             "name": data.get("name"),
-            "path": data.get("path")
+            "path": data.get("path"),
         }
         state.categories.append(category)
         save_config()
-        return jsonify(category)
+        return jsonify({"category": category})
+
+    @app.route("/api/categories/<int:category_id>", methods=["PUT"])
+    def update_category(category_id):
+        category = next((c for c in state.categories if c["id"] == category_id), None)
+        if category:
+            data = request.json
+            if "name" in data:
+                category["name"] = data["name"]
+            if "path" in data:
+                category["path"] = data["path"]
+            save_config()
+            return jsonify({"category": category})
+        return jsonify({"error": "Category not found"}), 404
+
+    @app.route("/api/categories/<int:category_id>", methods=["DELETE"])
+    def delete_category(category_id):
+        category = next((c for c in state.categories if c["id"] == category_id), None)
+        if category:
+            state.categories = [c for c in state.categories if c["id"] != category_id]
+            save_config()
+            return jsonify({"message": "Category deleted successfully"})
+        return jsonify({"error": "Category not found"}), 404
 
     # Manual folder processing
     @app.route("/api/process-folder/<int:folder_id>", methods=["POST"])
@@ -108,24 +141,24 @@ def register_routes(app):
             if file_path.is_file():
                 results.append(process_file(str(file_path), folder_id))
         return jsonify({"processed": len(results), "results": results})
-    
+
     # RAG Search (for chatbot integration)
     @app.route("/api/rag/search", methods=["POST"])
     def search_rag():
         query = request.json.get("query", "")
         max_results = request.json.get("max_results", 5)
-        
+
         if not query:
             return jsonify({"error": "Query required"}), 400
-        
+
         results = RAGGenerator.search_rag(query, max_results)
         return jsonify({"results": results})
-    
+
     # Get processing statistics
     @app.route("/api/stats", methods=["GET"])
     def get_stats():
         return jsonify(state.processing_stats)
-    
+
     # Bulk processing with progress
     @app.route("/api/process-folder-bulk/<int:folder_id>", methods=["POST"])
     def process_folder_bulk(folder_id):
@@ -133,44 +166,43 @@ def register_routes(app):
         folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
         if not folder or not Path(folder["path"]).exists():
             return jsonify({"error": "Folder not found"}), 404
-        
-        # Get all files
+
         file_paths = [str(p) for p in Path(folder["path"]).glob("*") if p.is_file()]
-        
+
         if not file_paths:
             return jsonify({"error": "No files found"}), 404
-        
-        # Process with bulk processor
+
         result = bulk_processor.process_files(file_paths, folder_id)
         return jsonify(result)
-    
+
     # Progress tracking
     @app.route("/api/progress", methods=["GET"])
     def get_progress():
         """Get current processing progress"""
-        return jsonify({
-            "queue_length": len(state.processing_queue),
-            "bulk_progress": bulk_processor.get_progress(),
-            "stats": state.processing_stats
-        })
-    
+        return jsonify(
+            {
+                "queue_length": len(state.processing_queue),
+                "bulk_progress": bulk_processor.get_progress(),
+                "stats": state.processing_stats,
+            }
+        )
+
     # Upload multiple files
     @app.route("/api/upload-bulk", methods=["POST"])
     def upload_bulk():
         """Upload and process multiple files"""
         from werkzeug.utils import secure_filename
         from config.settings import DATA_DIR
-        
-        if 'files' not in request.files:
+
+        if "files" not in request.files:
             return jsonify({"error": "No files provided"}), 400
-        
-        files = request.files.getlist('files')
-        folder_id = int(request.form.get('folder_id', 0))
-        
-        # Save files to temp directory
+
+        files = request.files.getlist("files")
+        folder_id = int(request.form.get("folder_id", 0))
+
         temp_dir = Path(DATA_DIR) / "temp_uploads"
         temp_dir.mkdir(exist_ok=True)
-        
+
         file_paths = []
         for file in files:
             if file.filename:
@@ -178,38 +210,83 @@ def register_routes(app):
                 file_path = temp_dir / filename
                 file.save(file_path)
                 file_paths.append(str(file_path))
-        
-        # Process with bulk processor
+
         result = bulk_processor.process_files(file_paths, folder_id)
-        
         return jsonify(result)
-    
+
+    # Upload and process single file (ADDED FOR UPLOAD & SCAN)
+    @app.route("/api/upload-and-process", methods=["POST"])
+    def upload_and_process():
+        """Upload and process a single file - mirrors watched folders behavior"""
+        from werkzeug.utils import secure_filename
+        from config.settings import DATA_DIR
+
+        try:
+            if "file" not in request.files:
+                return jsonify({"status": "error", "error": "No file provided"}), 400
+
+            file = request.files["file"]
+            if not file.filename:
+                return jsonify({"status": "error", "error": "No file selected"}), 400
+
+            # Save file to temp directory
+            temp_dir = Path(DATA_DIR) / "temp_uploads"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = secure_filename(file.filename)
+            file_path = temp_dir / filename
+
+            # Handle filename conflicts
+            counter = 1
+            while file_path.exists():
+                name_part = Path(filename).stem
+                ext_part = Path(filename).suffix
+                file_path = temp_dir / f"{name_part}_{counter}{ext_part}"
+                counter += 1
+
+            file.save(str(file_path))
+
+            # Process using the EXACT same function as watched folders
+            result = process_file(str(file_path), folder_id=0)
+
+            return jsonify(result)
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            return jsonify({"status": "error", "error": str(e)}), 500
+
     # Get move reports
     @app.route("/api/move-reports", methods=["GET"])
     def get_move_reports():
         """List all move reports"""
         from config.settings import MOVE_LOGS_DIR
-        
+
         reports = []
         for report_file in sorted(MOVE_LOGS_DIR.glob("*.txt"), reverse=True):
-            reports.append({
-                "filename": report_file.name,
-                "path": str(report_file),
-                "created": datetime.fromtimestamp(report_file.stat().st_mtime).isoformat()
-            })
-        
+            reports.append(
+                {
+                    "filename": report_file.name,
+                    "path": str(report_file),
+                    "created": datetime.fromtimestamp(
+                        report_file.stat().st_mtime
+                    ).isoformat(),
+                }
+            )
+
         return jsonify({"reports": reports})
-    
+
     # Download move report
     @app.route("/api/move-reports/<filename>", methods=["GET"])
     def download_move_report(filename):
         """Download a specific move report"""
         from config.settings import MOVE_LOGS_DIR
         from flask import send_file
-        
+
         report_path = MOVE_LOGS_DIR / filename
-        
+
         if not report_path.exists():
             return jsonify({"error": "Report not found"}), 404
-        
+
         return send_file(report_path, as_attachment=True)
