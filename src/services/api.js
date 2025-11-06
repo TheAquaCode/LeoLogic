@@ -4,7 +4,7 @@
 const API_BASE_URL = 'http://localhost:5001/api';
 
 class APIService {
-  async fetchWithTimeout(url, options = {}, timeout = 10000) {
+  async fetchWithTimeout(url, options = {}, timeout = options.method === 'POST' ? 30000 : 3000) { // 30 seconds for POST requests
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
 
@@ -16,6 +16,7 @@ class APIService {
           'Content-Type': 'application/json',
           ...options.headers,
         },
+        cache: 'no-cache', // Don't cache API responses
       });
       clearTimeout(id);
       return response;
@@ -110,10 +111,11 @@ class APIService {
   }
 
   async updateCategory(categoryId, updates) {
-    return this.request(`/categories/${categoryId}`, {
-      method: 'PATCH',
+    const data = await this.request(`/categories/${categoryId}`, {
+      method: 'PUT',
       body: JSON.stringify(updates),
     });
+    return data;
   }
 
   // Statistics

@@ -260,7 +260,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-gray-100">
           {filteredMovements.map((movement) => (
-            <div key={movement.id} className="p-4 hover:bg-gray-50 relative">
+            <div key={movement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 relative">
               {processingUndo === movement.id && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -309,7 +309,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                     <button 
                       onClick={() => handleUndo(movement.id)}
                       disabled={processingUndo === movement.id}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+                      className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50"
                       title="Undo movement"
                     >
                       <RotateCcw className="w-4 h-4" />
@@ -319,7 +319,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                   <div className="relative">
                     <button 
                       onClick={() => setOpenMenuId(openMenuId === movement.id ? null : movement.id)}
-                      className="p-1 text-gray-400 hover:text-gray-600"
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
@@ -330,10 +330,10 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                           className="fixed inset-0 z-10" 
                           onClick={() => setOpenMenuId(null)}
                         />
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
                           <button
                             onClick={() => handleOpenLocation(movement.id)}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-2"
                           >
                             <Folder className="w-4 h-4" />
                             <span>Open Location</span>
