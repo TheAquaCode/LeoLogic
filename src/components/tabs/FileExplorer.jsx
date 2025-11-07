@@ -11,13 +11,13 @@ const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) 
     onClick={onClick}
     className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
       isSelected
-        ? 'border-blue-500 bg-blue-50'
-        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 dark:border-blue-400'
+        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:border-gray-600 dark:hover:bg-gray-700'
     }`}
   >
-    <Icon className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-500' : 'text-gray-700'}`} />
-    <h3 className={`font-semibold mb-0.5 text-sm ${isSelected ? 'text-gray-900' : 'text-gray-900'}`}>{title}</h3>
-    <p className="text-xs text-gray-500">{description}</p>
+    <Icon className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-500 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`} />
+    <h3 className={`font-semibold mb-0.5 text-sm ${isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{title}</h3>
+    <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
   </button>
 );
 
@@ -457,12 +457,12 @@ const FileExplorer = ({ isChatMaximized }) => {
     >
       {/* Error Message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-red-900">Error</p>
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="font-medium text-red-900 dark:text-red-300">Error</p>
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           </div>
         </div>
@@ -475,11 +475,11 @@ const FileExplorer = ({ isChatMaximized }) => {
           className="flex items-center gap-2 mb-2 w-full group"
         >
           <div className="flex items-center gap-2">
-            <Zap className="w-6 h-6 text-gray-700" />
-            <h2 className="text-2xl font-semibold text-gray-900">Quick Sort</h2>
+            <Zap className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Quick Sort</h2>
           </div>
           <ChevronDown 
-            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ease-in-out ml-2 ${
+            className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ease-in-out ml-2 ${
               isQuickSortExpanded ? 'transform rotate-180' : ''
             }`}
           />
@@ -488,7 +488,7 @@ const FileExplorer = ({ isChatMaximized }) => {
         <div className={`transition-all duration-200 ease-in-out overflow-hidden ${
           isQuickSortExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
         }`}>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             Organize files quickly with AI-powered actions
           </p>
           
@@ -512,8 +512,8 @@ const FileExplorer = ({ isChatMaximized }) => {
             disabled={!selectedSort}
             className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
               selectedSort
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
             }`}
           >
             Start
