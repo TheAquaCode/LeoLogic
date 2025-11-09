@@ -454,3 +454,170 @@ svg:hover,
 svg:hover path {
   opacity: 1 !important;
 }
+/* ========================================
+   SEARCH BAR & DROPDOWN FIXES
+   ======================================== */
+
+/* Search Input - Light Mode */
+input[type="text"],
+input[type="search"],
+input[placeholder*="Search"],
+[class*="search"] input {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+input::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Menu Items - Light Mode */
+select,
+[role="listbox"],
+[role="option"],
+[class*="dropdown"] *,
+[class*="select"] * {
+  color: #111827 !important;
+}
+
+/* Dropdown hover/selected state - Light Mode */
+select option:hover,
+[role="option"]:hover,
+[role="option"][aria-selected="true"],
+option:checked,
+option:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================
+   DARK MODE - SEARCH & DROPDOWN FIXES
+   ======================================== */
+
+/* Search Input - Dark Mode */
+.dark input[type="text"],
+.dark input[type="search"],
+.dark input[placeholder*="Search"],
+.dark [class*="search"] input {
+  background-color: #3f3f46 !important;
+  color: #fafafa !important;
+}
+
+.dark input::placeholder {
+  color: #a1a1aa !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Menu Items - Dark Mode */
+.dark select,
+.dark [role="listbox"],
+.dark [role="option"],
+.dark [class*="dropdown"] *,
+.dark [class*="select"] * {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* Dropdown hover/selected state - Dark Mode */
+.dark select option:hover,
+.dark [role="option"]:hover,
+.dark [role="option"][aria-selected="true"],
+.dark option:checked,
+.dark option:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================
+   SPECIFIC FIXES FOR YOUR LAYOUT
+   ======================================== */
+
+/* Fix the specific dark search bar you showed */
+input[placeholder*="Search files, paths, or reasons"],
+input[placeholder*="search"] {
+  background-color: #4b5563 !important;
+  color: #ffffff !important;
+  padding: 0.75rem 1rem !important;
+}
+
+input[placeholder*="Search files, paths, or reasons"]::placeholder,
+input[placeholder*="search"]::placeholder {
+  color: #d1d5db !important;
+  opacity: 0.8 !important;
+}
+
+/* Fix dropdown items that appear next to search */
+select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.dark select {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+  border: 1px solid #3f3f46 !important;
+}
+
+/* Ensure dropdown options are always readable */
+option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  padding: 0.5rem !important;
+}
+
+.dark option {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* Selected/Hovered option with blue background */
+option:checked,
+option:hover,
+option:focus {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Fix for custom dropdown components (like the "Organized" and "Today" dropdowns) */
+[class*="dropdown-item"],
+[class*="menu-item"],
+[class*="list-item"] {
+  color: #111827 !important;
+}
+
+[class*="dropdown-item"]:hover,
+[class*="menu-item"]:hover,
+[class*="list-item"]:hover,
+[class*="dropdown-item"][class*="selected"],
+[class*="menu-item"][class*="selected"] {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+.dark [class*="dropdown-item"],
+.dark [class*="menu-item"],
+.dark [class*="list-item"] {
+  color: #fafafa !important;
+}
+
+.dark [class*="dropdown-item"]:hover,
+.dark [class*="menu-item"]:hover,
+.dark [class*="list-item"]:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Search icon color fix */
+svg[class*="search"],
+[class*="search"] svg {
+  color: #6b7280 !important;
+  opacity: 0.7 !important;
+}
+
+.dark svg[class*="search"],
+.dark [class*="search"] svg {
+  color: #d1d5db !important;
+  opacity: 0.7 !important;
+}
