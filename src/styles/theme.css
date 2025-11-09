@@ -536,15 +536,16 @@ option:hover {
 /* Fix the specific dark search bar you showed */
 input[placeholder*="Search files, paths, or reasons"],
 input[placeholder*="search"] {
-  background-color: #4b5563 !important;
+  background-color: #4d515b !important;
   color: #ffffff !important;
-  padding: 0.75rem 1rem !important;
+  padding: 0.85rem 2.5rem !important;
 }
 
 input[placeholder*="Search files, paths, or reasons"]::placeholder,
 input[placeholder*="search"]::placeholder {
   color: #d1d5db !important;
-  opacity: 0.8 !important;
+  opacity: 1 !important;
+  padding-left: .25rem !important;
 }
 
 /* Fix dropdown items that appear next to search */
