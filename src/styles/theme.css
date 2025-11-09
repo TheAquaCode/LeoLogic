@@ -361,3 +361,96 @@
 .from-blue-600 { --tw-gradient-from: #0891b2 !important; }
 .to-blue-700 { --tw-gradient-to: #0e7490 !important; }
 */
+
+
+/* ========================================
+   HOVER STATE CONTRAST FIXES
+   ======================================== */
+
+/* Light Mode - Sidebar Hover Fix */
+/* Ensure dark text on light hover backgrounds */
+.hover\:bg-gray-50:hover,
+.hover\:bg-gray-100:hover,
+[class*="sidebar"] *:hover,
+nav *:hover,
+aside *:hover {
+  color: var(--theme-text-primary) !important;
+}
+
+/* Make sure all child elements inherit the correct text color */
+.hover\:bg-gray-50:hover *,
+.hover\:bg-gray-100:hover * {
+  color: inherit !important;
+}
+
+/* Sidebar specific - Light Mode */
+:root {
+  --theme-sidebar-hover-text: #111827;
+}
+
+/* Apply proper text color to sidebar items on hover */
+.hover\:bg-gray-50:hover {
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+}
+
+/* ========================================
+   DARK MODE FIXES
+   ======================================== */
+
+/* Dark Mode - File Explorer & History Hover Fix */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-200:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #fafafa !important;
+}
+
+/* Ensure all children elements get light text in dark mode */
+.dark .hover\:bg-gray-50:hover *,
+.dark .hover\:bg-gray-100:hover *,
+.dark .hover\:bg-gray-200:hover * {
+  color: inherit !important;
+}
+
+/* Dark mode card/item hover states */
+.dark [class*="file"] *:hover,
+.dark [class*="history"] *:hover,
+.dark main *:hover {
+  color: #fafafa !important;
+}
+
+/* Specific fix for dark mode hover backgrounds */
+.dark {
+  --theme-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --theme-card-hover: rgba(255, 255, 255, 0.1);
+  --theme-bg-tertiary: #27272a;
+}
+
+/* Override dark mode hover for better contrast */
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .hover\:bg-gray-200:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ========================================
+   UNIVERSAL FIXES
+   ======================================== */
+
+/* Prevent opacity issues on hover */
+*:hover {
+  opacity: 1 !important;
+}
+
+/* Ensure icons maintain visibility */
+svg:hover,
+svg:hover path {
+  opacity: 1 !important;
+}
