@@ -385,7 +385,7 @@ aside *:hover {
 
 /* Sidebar specific - Light Mode */
 :root {
-  --theme-sidebar-hover-text: #111827;
+  --theme-sidebar-hover-text: #343c4d;
 }
 
 /* Apply proper text color to sidebar items on hover */
@@ -536,7 +536,7 @@ option:hover {
 /* Fix the specific dark search bar you showed */
 input[placeholder*="Search files, paths, or reasons"],
 input[placeholder*="search"] {
-  background-color: #4d515b !important;
+  background-color: #6d7077 !important;
   color: #ffffff !important;
   padding: 0.85rem 2.5rem !important;
 }
@@ -551,7 +551,7 @@ input[placeholder*="search"]::placeholder {
 /* Fix dropdown items that appear next to search */
 select {
   background-color: #ffffff !important;
-  color: #111827 !important;
+  color: #909398 !important;
   border: 1px solid #e5e7eb !important;
 }
 
