@@ -1,28 +1,13 @@
 // src/components/tabs/FileExplorer.jsx - Enhanced with backend integration
 import React, { useState, useEffect } from 'react';
-import { Zap, Image, Calendar, HardDrive, Copy, ChevronDown, AlertCircle } from 'lucide-react';
+import { Zap, ChevronDown, AlertCircle } from 'lucide-react';
 import WatchedFolders from '../ui/watchedfolders';
 import Categories from '../ui/categories';
 import { loadFromStorage, saveToStorage } from '../../utils/storage';
 import apiService from '../../services/api';
 
-const QuickSortCard = ({ icon: Icon, title, description, isSelected, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
-      isSelected
-        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 dark:border-blue-400'
-        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:border-gray-600 dark:hover:bg-gray-700'
-    }`}
-  >
-    <Icon className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-500 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`} />
-    <h3 className={`font-semibold mb-0.5 text-sm ${isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{title}</h3>
-    <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
-  </button>
-);
-
 const FileExplorer = ({ isChatMaximized }) => {
-  const [selectedSort, setSelectedSort] = useState(null);
+  const [isProcessingAll, setIsProcessingAll] = useState(false);
   const [isQuickSortExpanded, setIsQuickSortExpanded] = useState(() => {
     return loadFromStorage('QUICK_SORT_EXPANDED') ?? true;
   });
@@ -117,19 +102,79 @@ const FileExplorer = ({ isChatMaximized }) => {
       setError(error.message);
     }
   };
-  
 
-  const sortOptions = [
-    { id: 'type', icon: Image, title: 'By Type', description: 'Sort by file type' },
-    { id: 'date', icon: Calendar, title: 'By Date', description: 'Sort by date modified' },
-    { id: 'size', icon: HardDrive, title: 'By Size', description: 'Sort by file size' },
-    { id: 'duplicates', icon: Copy, title: 'Duplicates', description: 'Find duplicate files' }
-  ];
+  const handleProcessAllFolders = async () => {
+    if (backendStatus !== 'online') {
+      alert('Backend must be running to process files');
+      return;
+    }
 
-  const handleStart = () => {
-    if (selectedSort) {
-      console.log('Starting quick sort:', selectedSort);
-      alert(`Quick sort "${selectedSort}" feature coming soon!`);
+    const activeFolders = watchedFolders.filter(folder => folder.status === 'Active');
+    
+    if (activeFolders.length === 0) {
+      alert('No active watched folders to process');
+      return;
+    }
+
+    if (!window.confirm(`Process all files from ${activeFolders.length} active folder(s)?`)) {
+      return;
+    }
+
+    setIsProcessingAll(true);
+    const results = [];
+    
+    try {
+      for (const folder of activeFolders) {
+        try {
+          console.log(`Processing folder: ${folder.name}`);
+          const result = await apiService.processFolderFiles(folder.id);
+          results.push({
+            folderName: folder.name,
+            processed: result.processed,
+            fileCount: result.fileCount
+          });
+          
+          // Update folder file count
+          setWatchedFolders(prev => {
+            const updatedFolders = prev.map(f => 
+              f.id === folder.id ? { ...f, fileCount: result.fileCount || 0 } : f
+            );
+            saveToStorage('watched_folders', updatedFolders);
+            return updatedFolders;
+          });
+        } catch (error) {
+          console.error(`Error processing folder ${folder.name}:`, error);
+          results.push({
+            folderName: folder.name,
+            error: error.message
+          });
+        }
+      }
+      
+      // Show summary
+      const totalProcessed = results.reduce((sum, r) => sum + (r.processed || 0), 0);
+      const successCount = results.filter(r => !r.error).length;
+      const errorCount = results.filter(r => r.error).length;
+      
+      let message = `Processing complete!\n\n`;
+      message += `Total files processed: ${totalProcessed}\n`;
+      message += `Successful folders: ${successCount}\n`;
+      if (errorCount > 0) {
+        message += `Failed folders: ${errorCount}\n`;
+      }
+      message += `\nCheck the console for detailed results.`;
+      
+      alert(message);
+      console.log('Processing results:', results);
+      
+      // Trigger a full refresh
+      setRefreshTrigger(prev => prev + 1);
+      
+    } catch (error) {
+      console.error('Error processing folders:', error);
+      alert('Error processing folders: ' + error.message);
+    } finally {
+      setIsProcessingAll(false);
     }
   };
 
@@ -449,6 +494,9 @@ const FileExplorer = ({ isChatMaximized }) => {
     }
   };
 
+  const activeFoldersCount = watchedFolders.filter(folder => folder.status === 'Active').length;
+  const hasActiveFolders = activeFoldersCount > 0;
+
   return (
     <div 
       className={`flex-1 p-6 overflow-auto transition-all duration-300 ${
@@ -489,35 +537,42 @@ const FileExplorer = ({ isChatMaximized }) => {
           isQuickSortExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
         }`}>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Organize files quickly with AI-powered actions
+            Process all files from all watched folders with AI-powered organization
           </p>
           
-          <div className={`grid gap-4 mb-4 ${
-            isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'
-          }`}>
-            {sortOptions.map((option) => (
-              <QuickSortCard
-                key={option.id}
-                icon={option.icon}
-                title={option.title}
-                description={option.description}
-                isSelected={selectedSort === option.id}
-                onClick={() => setSelectedSort(option.id)}
-              />
-            ))}
-          </div>
-
           <button
-            onClick={handleStart}
-            disabled={!selectedSort}
-            className={`w-full px-6 py-2 rounded-lg font-medium transition-all ${
-              selectedSort
-                ? 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+            onClick={handleProcessAllFolders}
+            disabled={!hasActiveFolders || backendStatus !== 'online' || isProcessingAll}
+            className={`w-full px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
+              hasActiveFolders && backendStatus === 'online' && !isProcessingAll
+                ? 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-lg hover:shadow-xl'
                 : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
             }`}
           >
-            Start
+            {isProcessingAll ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              `Process All Folders ${hasActiveFolders ? `(${activeFoldersCount})` : ''}`
+            )}
           </button>
+          
+          {!hasActiveFolders && watchedFolders.length > 0 && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 text-center">
+              No active folders. Activate at least one folder to process.
+            </p>
+          )}
+          
+          {backendStatus !== 'online' && (
+            <p className="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
+              Backend must be online to process files.
+            </p>
+          )}
         </div>
       </div>
 
