@@ -30,8 +30,8 @@
   
   /* UI Element Colors */
   --theme-sidebar-active: #f3f4f6;
-  --theme-sidebar-hover: #f9fafb;
-  --theme-card-hover: #f9fafb;
+  --theme-sidebar-hover: #fcfcfc;
+  --theme-card-hover: #fcfcfc;
   
   /* Chat Colors */
   --theme-chat-ai-bg: #f3f4f6;
@@ -390,7 +390,7 @@ aside *:hover {
 
 /* Apply proper text color to sidebar items on hover */
 .hover\:bg-gray-50:hover {
-  background-color: #f9fafb !important;
+  background-color: #fcfcfc !important;
   color: #111827 !important;
 }
 
@@ -463,7 +463,7 @@ input[type="text"],
 input[type="search"],
 input[placeholder*="Search"],
 [class*="search"] input {
-  background-color: #f3f4f6 !important;
+  background-color: #f3f3f5 !important;
   color: #111827 !important;
 }
 
