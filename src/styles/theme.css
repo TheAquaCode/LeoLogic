@@ -622,3 +622,33 @@ svg[class*="search"],
   color: #d1d5db !important;
   opacity: 0.7 !important;
 }
+
+.bg-gray-900,
+.bg-gray-800,
+.bg-gray-700,
+[class*="active"],
+[class*="selected"],
+[aria-current="page"] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Sidebar navigation items - prevent dark backgrounds */
+nav button,
+nav a,
+aside button,
+aside a,
+[class*="sidebar"] button,
+[class*="sidebar"] a {
+  background-color: transparent !important;
+}
+
+nav button[class*="active"],
+nav a[class*="active"],
+aside button[class*="active"],
+aside a[class*="active"],
+nav button[aria-current="page"],
+nav a[aria-current="page"] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
