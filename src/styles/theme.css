@@ -30,8 +30,8 @@
   
   /* UI Element Colors */
   --theme-sidebar-active: #f3f4f6;
-  --theme-sidebar-hover: #f9fafb;
-  --theme-card-hover: #f9fafb;
+  --theme-sidebar-hover: #fcfcfc;
+  --theme-card-hover: #fcfcfc;
   
   /* Chat Colors */
   --theme-chat-ai-bg: #f3f4f6;
@@ -361,3 +361,294 @@
 .from-blue-600 { --tw-gradient-from: #0891b2 !important; }
 .to-blue-700 { --tw-gradient-to: #0e7490 !important; }
 */
+
+
+/* ========================================
+   HOVER STATE CONTRAST FIXES
+   ======================================== */
+
+/* Light Mode - Sidebar Hover Fix */
+/* Ensure dark text on light hover backgrounds */
+.hover\:bg-gray-50:hover,
+.hover\:bg-gray-100:hover,
+[class*="sidebar"] *:hover,
+nav *:hover,
+aside *:hover {
+  color: var(--theme-text-primary) !important;
+}
+
+/* Make sure all child elements inherit the correct text color */
+.hover\:bg-gray-50:hover *,
+.hover\:bg-gray-100:hover * {
+  color: inherit !important;
+}
+
+/* Sidebar specific - Light Mode */
+:root {
+  --theme-sidebar-hover-text: #343c4d;
+}
+
+/* Apply proper text color to sidebar items on hover */
+.hover\:bg-gray-50:hover {
+  background-color: #fcfcfc !important;
+  color: #111827 !important;
+}
+
+/* ========================================
+   DARK MODE FIXES
+   ======================================== */
+
+/* Dark Mode - File Explorer & History Hover Fix */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-200:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #fafafa !important;
+}
+
+/* Ensure all children elements get light text in dark mode */
+.dark .hover\:bg-gray-50:hover *,
+.dark .hover\:bg-gray-100:hover *,
+.dark .hover\:bg-gray-200:hover * {
+  color: inherit !important;
+}
+
+/* Dark mode card/item hover states */
+.dark [class*="file"] *:hover,
+.dark [class*="history"] *:hover,
+.dark main *:hover {
+  color: #fafafa !important;
+}
+
+/* Specific fix for dark mode hover backgrounds */
+.dark {
+  --theme-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --theme-card-hover: rgba(255, 255, 255, 0.1);
+  --theme-bg-tertiary: #27272a;
+}
+
+/* Override dark mode hover for better contrast */
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .hover\:bg-gray-200:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ========================================
+   UNIVERSAL FIXES
+   ======================================== */
+
+/* Prevent opacity issues on hover */
+*:hover {
+  opacity: 1 !important;
+}
+
+/* Ensure icons maintain visibility */
+svg:hover,
+svg:hover path {
+  opacity: 1 !important;
+}
+/* ========================================
+   SEARCH BAR & DROPDOWN FIXES
+   ======================================== */
+
+/* Search Input - Light Mode */
+input[type="text"],
+input[type="search"],
+input[placeholder*="Search"],
+[class*="search"] input {
+  background-color: #f3f3f5 !important;
+  color: #111827 !important;
+}
+
+input::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Menu Items - Light Mode */
+select,
+[role="listbox"],
+[role="option"],
+[class*="dropdown"] *,
+[class*="select"] * {
+  color: #111827 !important;
+}
+
+/* Dropdown hover/selected state - Light Mode */
+select option:hover,
+[role="option"]:hover,
+[role="option"][aria-selected="true"],
+option:checked,
+option:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================
+   DARK MODE - SEARCH & DROPDOWN FIXES
+   ======================================== */
+
+/* Search Input - Dark Mode */
+.dark input[type="text"],
+.dark input[type="search"],
+.dark input[placeholder*="Search"],
+.dark [class*="search"] input {
+  background-color: #3f3f46 !important;
+  color: #fafafa !important;
+}
+
+.dark input::placeholder {
+  color: #a1a1aa !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Menu Items - Dark Mode */
+.dark select,
+.dark [role="listbox"],
+.dark [role="option"],
+.dark [class*="dropdown"] *,
+.dark [class*="select"] * {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* Dropdown hover/selected state - Dark Mode */
+.dark select option:hover,
+.dark [role="option"]:hover,
+.dark [role="option"][aria-selected="true"],
+.dark option:checked,
+.dark option:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================
+   SPECIFIC FIXES FOR YOUR LAYOUT
+   ======================================== */
+
+/* Fix the specific dark search bar you showed */
+input[placeholder*="Search files, paths, or reasons"],
+input[placeholder*="search"] {
+  background-color: #6d7077 !important;
+  color: #ffffff !important;
+  padding: 0.85rem 2.5rem !important;
+}
+
+input[placeholder*="Search files, paths, or reasons"]::placeholder,
+input[placeholder*="search"]::placeholder {
+  color: #d1d5db !important;
+  opacity: 1 !important;
+  padding-left: .25rem !important;
+}
+
+/* Fix dropdown items that appear next to search */
+select {
+  background-color: #ffffff !important;
+  color: #909398 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.dark select {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+  border: 1px solid #3f3f46 !important;
+}
+
+/* Ensure dropdown options are always readable */
+option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  padding: 0.5rem !important;
+}
+
+.dark option {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* Selected/Hovered option with blue background */
+option:checked,
+option:hover,
+option:focus {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Fix for custom dropdown components (like the "Organized" and "Today" dropdowns) */
+[class*="dropdown-item"],
+[class*="menu-item"],
+[class*="list-item"] {
+  color: #111827 !important;
+}
+
+[class*="dropdown-item"]:hover,
+[class*="menu-item"]:hover,
+[class*="list-item"]:hover,
+[class*="dropdown-item"][class*="selected"],
+[class*="menu-item"][class*="selected"] {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+.dark [class*="dropdown-item"],
+.dark [class*="menu-item"],
+.dark [class*="list-item"] {
+  color: #fafafa !important;
+}
+
+.dark [class*="dropdown-item"]:hover,
+.dark [class*="menu-item"]:hover,
+.dark [class*="list-item"]:hover {
+  background-color: var(--theme-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Search icon color fix */
+svg[class*="search"],
+[class*="search"] svg {
+  color: #6b7280 !important;
+  opacity: 0.7 !important;
+}
+
+.dark svg[class*="search"],
+.dark [class*="search"] svg {
+  color: #d1d5db !important;
+  opacity: 0.7 !important;
+}
+
+.bg-gray-900,
+.bg-gray-800,
+.bg-gray-700,
+[class*="active"],
+[class*="selected"],
+[aria-current="page"] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Sidebar navigation items - prevent dark backgrounds */
+nav button,
+nav a,
+aside button,
+aside a,
+[class*="sidebar"] button,
+[class*="sidebar"] a {
+  background-color: transparent !important;
+}
+
+nav button[class*="active"],
+nav a[class*="active"],
+aside button[class*="active"],
+aside a[class*="active"],
+nav button[aria-current="page"],
+nav a[aria-current="page"] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}

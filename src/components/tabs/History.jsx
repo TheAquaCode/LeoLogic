@@ -8,29 +8,29 @@ const StatsCards = ({ stats, isChatMaximized }) => {
       label: 'Total Files',
       value: stats.total || 0,
       icon: FileText,
-      bgColor: 'bg-gray-100',
-      iconColor: 'text-gray-600'
+      bgColor: 'bg-gray-100 dark:bg-gray-700',
+      iconColor: 'text-gray-600 dark:text-gray-300'
     },
     {
       label: 'Completed',
       value: stats.completed || 0,
       icon: Check,
-      bgColor: 'bg-green-100',
-      iconColor: 'text-green-600'
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      iconColor: 'text-green-600 dark:text-green-400'
     },
     {
       label: 'Undone',
       value: stats.undone || 0,
       icon: Clock,
-      bgColor: 'bg-yellow-100',
-      iconColor: 'text-yellow-600'
+      bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+      iconColor: 'text-yellow-600 dark:text-yellow-400'
     },
     {
       label: 'Success Rate',
       value: stats.success_rate || '0%',
       icon: Check,
-      bgColor: 'bg-green-100',
-      iconColor: 'text-green-600'
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      iconColor: 'text-green-600 dark:text-green-400'
     }
   ];
 
@@ -39,11 +39,11 @@ const StatsCards = ({ stats, isChatMaximized }) => {
       {statsConfig.map((stat, index) => {
         const IconComponent = stat.icon;
         return (
-          <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+          <div key={index} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stat.value}</p>
               </div>
               <div className={`w-8 h-8 ${stat.bgColor} rounded flex items-center justify-center`}>
                 <IconComponent className={`w-4 h-4 ${stat.iconColor}`} />
@@ -202,10 +202,10 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 flex-1 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex items-center justify-center">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading history...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading history...</p>
         </div>
       </div>
     );
@@ -213,13 +213,13 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 flex-1 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex items-center justify-center">
         <div className="text-center py-12">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 font-medium">{error}</p>
+          <AlertCircle className="w-12 h-12 text-red-500 dark:text-red-400 mx-auto mb-4" />
+          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
           <button 
             onClick={loadHistory}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600"
           >
             Retry
           </button>
@@ -230,15 +230,15 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 
   if (filteredMovements.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 flex-1 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex items-center justify-center">
         <div className="text-center py-12">
-          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium mb-2">
+          <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 font-medium mb-2">
             {searchQuery || actionFilter !== 'All Actions' || timeFilter !== 'All Time' 
               ? 'No matching file movements'
               : 'No file movements yet'}
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-500">
             {searchQuery || actionFilter !== 'All Actions' || timeFilter !== 'All Time'
               ? 'Try adjusting your filters'
               : 'Files organized by the AI will appear here'}
@@ -249,41 +249,41 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Recent File Movements</h3>
-        <span className="text-sm text-gray-500">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex flex-col min-h-0">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent File Movements</h3>
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           {filteredMovements.length} {filteredMovements.length === 1 ? 'file' : 'files'}
         </span>
       </div>
       
       <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {filteredMovements.map((movement) => (
-            <div key={movement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 relative">
+            <div key={movement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 relative transition-colors">
               {processingUndo === movement.id && (
-                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 flex items-center justify-center z-10">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
                 </div>
               )}
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
-                    <Image className="w-4 h-4 text-blue-600" />
+                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center flex-shrink-0">
+                    <Image className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <h4 className="font-medium text-gray-900 truncate">{movement.filename}</h4>
-                      <span className="text-xs text-gray-500 flex-shrink-0">{movement.confidence}</span>
+                      <h4 className="font-medium text-gray-900 dark:text-white truncate">{movement.filename}</h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{movement.confidence}</span>
                     </div>
                     <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-sm text-gray-500">{movement.timeAgo}</span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-sm text-gray-600">{movement.detection}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{movement.timeAgo}</span>
+                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{movement.detection}</span>
                     </div>
-                    <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
+                    <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500 dark:text-gray-400">
                       <span className="truncate max-w-[250px]" title={movement.fromPath}>
                         {truncatePath(movement.fromPath)}
                       </span>
@@ -298,8 +298,8 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                 <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     movement.status === 'undone' 
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-green-100 text-green-700'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                      : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                   }`}>
                     <Check className="w-3 h-3 mr-1" />
                     {movement.status === 'undone' ? 'Undone' : 'Done'}
@@ -402,16 +402,16 @@ const History = ({ isChatMaximized }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Search and Filters Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Search files, paths, or reasons..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           
@@ -419,27 +419,27 @@ const History = ({ isChatMaximized }) => {
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="appearance-none border rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="appearance-none border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white"
             >
               <option>All Actions</option>
               <option>Moved</option>
               <option>Organized</option>
               <option>Categorized</option>
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           </div>
           
           <div className="relative">
             <select
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value)}
-              className="appearance-none border rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="appearance-none border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white"
             >
               <option>All Time</option>
               <option>Today</option>
               <option>This Week</option>
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -452,7 +452,7 @@ const History = ({ isChatMaximized }) => {
       >
         {loading ? (
           <div className="flex items-center justify-center flex-1">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
           </div>
         ) : (
           <>
