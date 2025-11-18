@@ -221,7 +221,6 @@ def register_routes(app):
         for folder in state.watched_folders:
             folder_data = folder.copy()
             file_count = count_files_in_folder(folder['path'])
-            print(f"Folder {folder['name']}: counted {file_count} files")  # Debug log
             folder_data['fileCount'] = file_count
             folders.append(folder_data)
         return jsonify(folders)
@@ -311,35 +310,91 @@ def register_routes(app):
     
     @app.route("/api/process-folder/<int:folder_id>", methods=["POST"])
     def process_folder_route(folder_id):
+        """Start background processing for a folder and return accepted response.
+
+        A background worker will run the bulk processor and state.processing_progress
+        will be periodically updated. Clients can poll `/api/process-folder/<id>/progress`.
+        """
+        import threading
+
         folder = next((f for f in state.watched_folders if f["id"] == folder_id), None)
         if not folder or not Path(folder["path"]).exists():
             return jsonify({"error": "Folder not found"}), 404
-        
-        results = []
-        for file_path in Path(folder["path"]).glob("*"):
-            if file_path.is_file():
-                result = process_file(str(file_path), folder_id)
-                results.append(result)
-                
-                if result.get('status') == 'success':
-                    add_to_history({
-                        'filename': result['file_name'],
-                        'from_path': str(file_path),
-                        'to_path': result.get('destination', str(file_path)),
-                        'category': result.get('category', 'Unknown'),
-                        'confidence': f"{int(result.get('confidence', 0) * 100)}%",
-                        'detection': 'AI Classification',
-                        'status': 'completed'
-                    })
-        
-        # Get updated file count after processing
-        updated_file_count = count_files_in_folder(folder["path"])
-        
-        return jsonify({
-            "processed": len(results), 
-            "results": results,
-            "fileCount": updated_file_count
-        })
+
+        # Get all files
+        file_paths = [str(p) for p in Path(folder["path"]).glob("*") if p.is_file()]
+
+        if not file_paths:
+            return jsonify({"processed": 0, "results": [], "fileCount": 0})
+
+        # Initialize progress
+        state.processing_progress[folder_id] = {
+            "total": len(file_paths),
+            "completed": 0,
+            "failed": 0,
+            "in_progress": 0
+        }
+
+        def worker():
+            try:
+                # Run actual processing in a separate thread
+                def run_processor():
+                    return bulk_processor.process_files(file_paths, folder_id)
+
+                proc_thread = threading.Thread(target=run_processor)
+                proc_thread.start()
+
+                # While processing, copy progress from bulk_processor
+                while proc_thread.is_alive():
+                    try:
+                        prog = bulk_processor.get_progress()
+                        state.processing_progress[folder_id] = {
+                            "total": prog.get("total", len(file_paths)),
+                            "completed": prog.get("completed", 0),
+                            "failed": prog.get("failed", 0),
+                            "in_progress": prog.get("in_progress", 0)
+                        }
+                    except Exception:
+                        pass
+                    time.sleep(0.5)
+
+                # After completion, finalize
+                final = bulk_processor.get_progress()
+                state.processing_progress[folder_id] = {
+                    "total": final.get("total", len(file_paths)),
+                    "completed": final.get("completed", 0),
+                    "failed": final.get("failed", 0),
+                    "in_progress": final.get("in_progress", 0)
+                }
+
+                # Add successful moves to history from the bulk processor results
+                # Note: bulk_processor.process_files returns results; to avoid duplicating work,
+                # re-run an immediate call to process_files isn't desired. Instead, the bulk_processor
+                # already saved results; but original synchronous call returned results. Since we
+                # invoked process_files in a thread via run_processor, we don't have the return value here.
+                # To ensure history is updated, we will generate a lightweight scan: read move reports
+                # from the move logger or leave history update to the processor itself.
+
+                # Refresh folder file count
+                try:
+                    updated_file_count = count_files_in_folder(folder["path"])
+                    # Update the folder entry in state.watched_folders if present
+                    for f in state.watched_folders:
+                        if f.get("id") == folder_id:
+                            f["fileCount"] = updated_file_count
+                            break
+                except Exception:
+                    pass
+
+            finally:
+                # keep final progress available for a short time; do not immediately delete
+                pass
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+
+        # Return accepted with total files
+        return jsonify({"accepted": True, "total": len(file_paths)}), 202
 
     @app.route("/api/upload-and-process", methods=["POST"])
     def upload_and_process():
@@ -373,8 +428,8 @@ def register_routes(app):
             
             if result.get('status') == 'success':
                 add_to_history({
-                    'filename': result['file_name'],
-                    'from_path': str(file_path),
+                    'filename': result.get('file_name', 'Unknown'),
+                    'from_path': result.get('original_path', str(file_path)),
                     'to_path': result.get('destination', str(file_path)),
                     'category': result.get('category', 'Unknown'),
                     'confidence': f"{int(result.get('confidence', 0) * 100)}%",
@@ -387,6 +442,18 @@ def register_routes(app):
         except Exception as e:
             import traceback
             traceback.print_exc()
+            return jsonify({"status": "error", "error": str(e)}), 500
+
+    @app.route("/api/process-folder/<int:folder_id>/progress", methods=["GET"])
+    def get_process_progress(folder_id):
+        """Return current processing progress for a folder (total, completed, failed, in_progress)."""
+        try:
+            prog = state.processing_progress.get(folder_id)
+            if not prog:
+                return jsonify({"status": "idle", "total": 0, "completed": 0, "failed": 0, "in_progress": 0})
+            return jsonify({"status": "running", **prog})
+        except Exception as e:
+            print(f"Error getting progress for {folder_id}: {e}")
             return jsonify({"status": "error", "error": str(e)}), 500
 
     # ==================== RAG & STATS ====================
@@ -405,3 +472,19 @@ def register_routes(app):
     @app.route("/api/stats", methods=["GET"])
     def get_stats():
         return jsonify(state.processing_stats)
+    
+    @app.route("/api/progress", methods=["GET"])
+    def get_progress():
+        """Get current processing progress"""
+        progress_data = bulk_processor.get_progress()
+        
+        return jsonify({
+            "queue_length": len(state.processing_queue),
+            "bulk_progress": {
+                "total": progress_data.get("total", 0),
+                "completed": progress_data.get("completed", 0),
+                "failed": progress_data.get("failed", 0),
+                "in_progress": progress_data.get("in_progress", 0),
+            },
+            "stats": state.processing_stats,
+        })

@@ -88,6 +88,17 @@ class APIService {
     });
   }
 
+  // Start processing folder in background (returns accepted) and poll progress separately
+  async startProcessFolder(folderId) {
+    return this.request(`/process-folder/${folderId}`, {
+      method: 'POST'
+    });
+  }
+
+  async getProcessProgress(folderId) {
+    return this.request(`/process-folder/${folderId}/progress`);
+  }
+
   // Categories
   async getCategories() {
     const data = await this.request('/categories');

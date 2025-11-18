@@ -1,7 +1,3 @@
-"""
-Global State Management
-"""
-
 from threading import Lock
 
 
@@ -15,13 +11,15 @@ class FileOrganizerState:
         self.ollama_client = None
         self.whisper_model = None
         self.is_initialized = False
-        self.auto_organize = False
+        self.bart_classifier = None  # BART-MNLI classifier for fast classification
         self.processing_stats = {
             "total": 0,
             "success": 0,
             "failed": 0,
             "by_type": {}
         }
+        # Per-folder processing progress state: { folder_id: { total, completed, failed, in_progress } }
+        self.processing_progress = {}
 
 
 state = FileOrganizerState()

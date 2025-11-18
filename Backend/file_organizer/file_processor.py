@@ -74,7 +74,7 @@ def process_file(file_path: str, folder_id: int):
 
             # Use RAG data for classification (it has the full analysis)
             classification = AIProcessor.classify_into_categories(
-                rag_data["analysis"], state.categories
+                rag_data["analysis"], state.categories, filename=Path(file_path).name
             )
         else:
             # Fallback: use the analysis directly if RAG failed
@@ -148,7 +148,8 @@ def process_file(file_path: str, folder_id: int):
                     "summary": ai_analysis.get("summary", ""),
                     "keywords": ai_analysis.get("keywords", []),
                     "rag_path": rag_path,
-                    "destination": final_file_path  # ADD THIS LINE
+                    "original_path": file_path,
+                    "destination": final_file_path 
                 }
 
         # Low confidence - file stays in original location, but RAG is already created
@@ -164,6 +165,8 @@ def process_file(file_path: str, folder_id: int):
             "summary": ai_analysis.get("summary", ""),
             "suggestions": ai_analysis.get("category_suggestions", []),
             "rag_path": rag_path,
+            "original_path": file_path,
+            "destination": file_path 
         }
 
     except FileNotFoundError as e:

@@ -1,5 +1,8 @@
 """
-AI Model Initialization - Ollama + Whisper
+AI Model Initialization - Ollama + Whisper + BART-MNLI
+LOADS ALL MODELS ON BACKEND STARTUP
+
+REPLACE FILE: Backend/file_organizer/models.py
 """
 
 import ollama
@@ -12,15 +15,18 @@ logger = setup_logger(__name__)
 
 
 def initialize_models():
-    """Initialize Ollama and Whisper models"""
-    logger.info("Initializing AI models...")
+    """Initialize Ollama, Whisper, and BART models on startup"""
+    logger.info("="*80)
+    logger.info("🚀 INITIALIZING ALL AI MODELS")
+    logger.info("="*80)
     
     try:
-        # Initialize Ollama client
+        # 1. Initialize Ollama client
+        logger.info("📦 Loading Ollama client...")
         state.ollama_client = ollama.Client(host=OLLAMA_HOST)
         
         # Check if models are available
-        logger.info("Checking Ollama models...")
+        logger.info("🔍 Checking Ollama models...")
         available_models = state.ollama_client.list()
         model_names = []
         if 'models' in available_models:
@@ -35,24 +41,32 @@ def initialize_models():
                     model_names.append(m.model)
         
         if PHI3_MODEL not in model_names:
-            logger.warning(f"{PHI3_MODEL} not found. Run: ollama pull {PHI3_MODEL}")
+            logger.warning(f"⚠️  {PHI3_MODEL} not found. Run: ollama pull {PHI3_MODEL}")
         else:
-            logger.info(f"{PHI3_MODEL} ready")
+            logger.info(f"✅ {PHI3_MODEL} ready")
         
         if LLAVA_MODEL not in model_names:
-            logger.warning(f"{LLAVA_MODEL} not found. Run: ollama pull {LLAVA_MODEL}")
+            logger.warning(f"⚠️  {LLAVA_MODEL} not found. Run: ollama pull {LLAVA_MODEL}")
         else:
-            logger.info(f"{LLAVA_MODEL} ready")
+            logger.info(f"✅ {LLAVA_MODEL} ready")
         
-        # Initialize Whisper
-        logger.info(f"Loading Whisper {WHISPER_MODEL} model...")
+        # 2. Initialize Whisper
+        logger.info(f"📦 Loading Whisper {WHISPER_MODEL} model...")
         state.whisper_model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
-        logger.info(f"Whisper {WHISPER_MODEL} ready")
+        logger.info(f"✅ Whisper {WHISPER_MODEL} ready")
+        
+        # 3. Initialize BART-MNLI (NEW!)
+        logger.info("📦 Loading BART-MNLI classifier...")
+        from .bart_classifier import BARTClassifier
+        state.bart_classifier = BARTClassifier()
+        logger.info("✅ BART-MNLI ready")
         
         state.is_initialized = True
-        logger.info("All AI models initialized")
+        logger.info("="*80)
+        logger.info("✅ ALL AI MODELS INITIALIZED SUCCESSFULLY")
+        logger.info("="*80)
         
     except Exception as e:
-        logger.error(f"Error initializing models: {e}", exc_info=True)
-        logger.error("Make sure Ollama is running: ollama serve")
+        logger.error(f"❌ Error initializing models: {e}", exc_info=True)
+        logger.error("   Make sure Ollama is running: ollama serve")
         state.is_initialized = False

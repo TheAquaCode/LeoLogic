@@ -1,5 +1,5 @@
 // src/components/tabs/FileExplorer.jsx - Enhanced with backend integration
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Zap, ChevronDown, AlertCircle } from 'lucide-react';
 import WatchedFolders from '../ui/watchedfolders';
 import Categories from '../ui/categories';
@@ -36,7 +36,16 @@ const FileExplorer = ({ isChatMaximized }) => {
   const [categories, setCategories] = useState(initialData.categories);
   const [error, setError] = useState(null);
   const [processingFolder, setProcessingFolder] = useState(null);
+  const [processingProgress, setProcessingProgress] = useState(() => {
+    try {
+      const raw = localStorage.getItem('processing_progress');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const progressPollRef = useRef(null);
 
   // Save expanded state whenever it changes
   useEffect(() => {
@@ -47,6 +56,28 @@ const FileExplorer = ({ isChatMaximized }) => {
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
+
+  // Resume polling if a processing job was active when component mounted
+  useEffect(() => {
+    try {
+      const storedFolder = localStorage.getItem('processing_folder');
+      if (storedFolder) {
+        const folderId = Number(storedFolder);
+        setProcessingFolder(folderId);
+        startProgressPolling(folderId);
+      }
+    } catch (e) {
+      console.error('Error restoring processing state:', e);
+    }
+
+    return () => {
+      // cleanup polling
+      if (progressPollRef.current) {
+        clearInterval(progressPollRef.current);
+        progressPollRef.current = null;
+      }
+    };
+  }, []);
 
   const checkBackendStatus = async () => {
     try {
@@ -341,40 +372,74 @@ const FileExplorer = ({ isChatMaximized }) => {
       return;
     }
 
-    setProcessingFolder(folderId);
-    
     try {
-      const result = await apiService.processFolderFiles(folderId);
-      
-      // Trigger a refresh of the folders data
-      setRefreshTrigger(prev => prev + 1);
-      
-      // Also update the current state
-      setWatchedFolders(prev => {
-        const updatedFolders = prev.map(folder => {
-          if (folder.id === folderId) {
-            return {
-              ...folder,
-              fileCount: result.fileCount || 0
-            };
-          }
-          return folder;
-        });
-        saveToStorage('watched_folders', updatedFolders);
-        return updatedFolders;
-      });
-      
-      alert(`Processed ${result.processed} files!\n\nCheck the console for details.`);
-      console.log('Processing results:', result);
+      // Start processing in background
+      const resp = await apiService.startProcessFolder(folderId);
+
+      // If accepted, begin polling for progress
+      setProcessingFolder(folderId);
+      try { localStorage.setItem('processing_folder', String(folderId)); } catch {}
+      // initialize progress entry
+      const initProgress = { ...(processingProgress || {}) };
+      initProgress[folderId] = { completed: 0, total: resp.total || 0, failed: 0 };
+      setProcessingProgress(initProgress);
+      try { localStorage.setItem('processing_progress', JSON.stringify(initProgress)); } catch {}
+
+      startProgressPolling(folderId);
     } catch (error) {
-      // Only show error if it's not an aborted request
-      if (!error.message.includes('aborted')) {
-        console.error('Error processing folder:', error);
-        alert('Error processing folder: ' + error.message);
-      }
-    } finally {
+      console.error('Error starting folder processing:', error);
+      alert('Error starting processing: ' + (error.message || String(error)));
       setProcessingFolder(null);
     }
+  };
+
+  const startProgressPolling = (folderId) => {
+    // clear existing
+    if (progressPollRef.current) {
+      clearInterval(progressPollRef.current);
+      progressPollRef.current = null;
+    }
+
+    progressPollRef.current = setInterval(async () => {
+      try {
+        const prog = await apiService.getProcessProgress(folderId);
+        if (prog && (prog.total !== undefined)) {
+          const updated = { ...(processingProgress || {}) };
+          updated[folderId] = {
+            completed: prog.completed || 0,
+            total: prog.total || 0,
+            failed: prog.failed || 0,
+            in_progress: prog.in_progress || 0
+          };
+          setProcessingProgress(updated);
+          try { localStorage.setItem('processing_progress', JSON.stringify(updated)); } catch {}
+
+          // If completed
+          if (updated[folderId].total > 0 && updated[folderId].completed >= updated[folderId].total) {
+            // stop polling, clear stored processing folder after a short delay
+            clearInterval(progressPollRef.current);
+            progressPollRef.current = null;
+
+            // update folder counts and refresh
+            setRefreshTrigger(prev => prev + 1);
+
+            setTimeout(() => {
+              setProcessingFolder(null);
+              try { localStorage.removeItem('processing_folder'); } catch {}
+              // Keep progress record for a short period (optional), or remove:
+              try { localStorage.removeItem('processing_progress'); } catch {}
+              setProcessingProgress(prev => {
+                const copy = { ...(prev || {}) };
+                delete copy[folderId];
+                return copy;
+              });
+            }, 800);
+          }
+        }
+      } catch (err) {
+        console.error('Error polling progress:', err);
+      }
+    }, 800);
   };
 
   // Categories handlers
@@ -589,6 +654,7 @@ const FileExplorer = ({ isChatMaximized }) => {
           onProcessFolder={handleProcessFolder}
           onOpenLocation={handleOpenFolderLocation}
           processingFolder={processingFolder}
+          processingProgress={processingProgress}
           backendOnline={backendStatus === 'online'}
         />
         <Categories 
