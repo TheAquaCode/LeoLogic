@@ -1,3 +1,4 @@
+// src/components/tabs/UploadScan.jsx
 import React, { useState } from 'react';
 import { Upload, Folder, X, CheckCircle, AlertCircle, Loader, FileText } from 'lucide-react';
 import apiService from '../../services/api';
@@ -36,15 +37,24 @@ const UploadScan = ({ isChatMaximized }) => {
     let errorCount = 0;
     let lowConfidenceCount = 0;
 
+    // Process files sequentially
     for (const file of uploadedFiles) {
       try {
-        // Create FormData to send file to backend
-        const formData = new FormData();
-        formData.append('file', file);
+        // In Electron, file.path gives the absolute path on disk.
+        // We send this path to the backend so it can MOVE the original file.
+        // If file.path is undefined (standard web), this won't work for moving originals.
+        if (!file.path) {
+            console.error("No file path detected. Are you running in Electron?");
+            errorCount++;
+            continue;
+        }
 
         const response = await fetch('http://localhost:5001/api/upload-and-process', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filePath: file.path })
         });
 
         const result = await response.json();
@@ -66,7 +76,7 @@ const UploadScan = ({ isChatMaximized }) => {
     setResults([{ successCount, errorCount, lowConfidenceCount, total: uploadedFiles.length }]);
     setProcessing(false);
     setShowResults(true);
-    setUploadedFiles([]); // Clear the file list
+    setUploadedFiles([]); // Clear the file list as they have been moved
   };
 
   return (
@@ -84,7 +94,7 @@ const UploadScan = ({ isChatMaximized }) => {
           }}>
             <div className="flex items-center space-x-2 mb-6">
               <Upload className="w-5 h-5" style={{ color: 'var(--theme-text-tertiary)' }} />
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Upload Files</h3>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--theme-text-primary)' }}>Direct File Processing</h3>
             </div>
 
             {/* Upload box */}
@@ -130,13 +140,13 @@ const UploadScan = ({ isChatMaximized }) => {
                 }`} 
                 style={{ color: 'var(--theme-text-primary)' }}
               >
-                Drop files here or click to upload
+                Drop files here or click to select
               </h4>
               <p 
                 className={`${isChatMaximized ? 'mb-3 text-xs' : 'mb-4 text-sm'}`}
                 style={{ color: 'var(--theme-text-secondary)' }}
               >
-                Support for images, videos, documents, and archives
+                Selected files will be moved from their current location to the organized folders.
               </p>
 
               <div 
@@ -233,7 +243,7 @@ const UploadScan = ({ isChatMaximized }) => {
                   Processing Files...
                 </h4>
                 <p className="text-xs" style={{ color: 'var(--theme-text-secondary)' }}>
-                  Organizing your files with AI
+                  Moving and organizing your files with AI
                 </p>
               </div>
             )}
@@ -252,12 +262,12 @@ const UploadScan = ({ isChatMaximized }) => {
                   <div className="flex justify-center space-x-4 mb-3">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{results[0].successCount}</div>
-                      <div className="text-xs" style={{ color: 'var(--theme-text-secondary)' }}>Organized</div>
+                      <div className="text-xs" style={{ color: 'var(--theme-text-secondary)' }}>Moved</div>
                     </div>
                     {results[0].lowConfidenceCount > 0 && (
                       <div className="text-center">
                         <div className="text-2xl font-bold text-yellow-600">{results[0].lowConfidenceCount}</div>
-                        <div className="text-xs" style={{ color: 'var(--theme-text-secondary)' }}>Low Confidence</div>
+                        <div className="text-xs" style={{ color: 'var(--theme-text-secondary)' }}>Skipped (Low Conf)</div>
                       </div>
                     )}
                     {results[0].errorCount > 0 && (
@@ -268,7 +278,7 @@ const UploadScan = ({ isChatMaximized }) => {
                     )}
                   </div>
                   <p className="text-xs mb-3" style={{ color: 'var(--theme-text-secondary)' }}>
-                    Check the History page to see where your files were organized
+                    Files have been moved to their category folders. Check History for details.
                   </p>
                   
                 </div>
@@ -287,7 +297,7 @@ const UploadScan = ({ isChatMaximized }) => {
                 }}
               >
                 <Upload className="w-4 h-4" />
-                <span>Process & Organize Files</span>
+                <span>Move & Organize Files</span>
               </button>
             )}
             

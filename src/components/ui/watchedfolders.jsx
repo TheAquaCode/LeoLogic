@@ -78,7 +78,6 @@ const WatchedFolders = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-gray-900 truncate">{folder.name}</h4>
-                        <p className="text-sm text-gray-500 truncate">{folder.path}</p>
                       </div>
                     </div>
                     <div className="relative flex-shrink-0 ml-2">

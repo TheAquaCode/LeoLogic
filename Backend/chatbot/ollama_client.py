@@ -1,6 +1,6 @@
 """
 Ollama Chatbot with RAG Integration
-FIXED: Actually searches RAG files when asked about file contents
+FIXED: actually searches RAG files when asked about file contents
 
 REPLACE FILE: Backend/chatbot/ollama_client.py
 """
@@ -8,6 +8,7 @@ REPLACE FILE: Backend/chatbot/ollama_client.py
 import ollama
 import requests
 import sys
+import re
 sys.path.insert(0, str(__file__).rsplit('/', 2)[0])
 from utils.logger import setup_logger
 
@@ -25,28 +26,21 @@ class OllamaChatbot:
         self.conversation_history = []
         self.is_ready = True
         self.loading = False
-        self.system_instruction = """You are Clanky, a helpful AI assistant for an AI-powered file organization system.
+        self.system_instruction = """You are Clanky, a helpful AI assistant for a file organization system.
 
-You help users:
-1. Find and retrieve information from their organized files
-2. Answer questions about file contents using the RAG system
-3. Provide summaries of documents
-4. Search through organized files
+Your goal is to help users find files and understand their content based on the provided search results.
 
-IMPORTANT: When users ask about a specific file (like "what's in work.txt" or "tell me about sales report"), 
-you MUST search the RAG system using the search_files tool to find that file's contents.
+GUIDELINES:
+1. **Natural Tone:** Speak naturally and directly. Do NOT mention "RAG", "search_files", "tools", or "internal functions".
+2. **Formatting:** Use **bold** for filenames and key concepts to make them easy to read.
+3. **Conciseness:** Keep responses brief and to the point. Avoid unnecessary fluff.
+4. ** honesty:** If the search results say the file wasn't found, simply state that you don't see that file in the organized folders. Don't make excuses about tools.
 
-Always search first, then answer based on the actual file contents you find."""
+IMPORTANT: When the system provides "File search results", rely EXACTLY on that information. Do not hallucinate content if it's not there."""
     
     def search_files(self, query: str) -> str:
         """
         Search through RAG files for relevant information
-        
-        Args:
-            query: Search query (can be filename or content-based query)
-        
-        Returns:
-            Formatted string with search results
         """
         try:
             logger.info(f"🔍 Searching RAG files for: {query}")
@@ -61,37 +55,28 @@ Always search first, then answer based on the actual file contents you find."""
                 results = response.json().get("results", [])
                 
                 if not results:
-                    return f"No files found matching '{query}'. The file may not have been processed yet, or it might not exist in the organized folders."
+                    return f"System Notification: No files found matching '{query}' in the index."
                 
                 # Format results for the chatbot
-                context = f"Found {len(results)} relevant file(s):\n\n"
+                context = f"Here is the content found for the user's query '{query}':\n\n"
                 for i, result in enumerate(results, 1):
-                    context += f"📄 **{result['file']}**\n"
-                    context += f"   Location: {result['path']}\n"
+                    context += f"📄 **{result['file']}** (Location: {result['path']})\n"
                     if result.get('summary'):
                         context += f"   Summary: {result['summary']}\n"
                     if result.get('keywords'):
                         context += f"   Keywords: {', '.join(result['keywords'][:5])}\n"
                     if result.get('content_preview'):
                         preview = result['content_preview'][:300]
-                        context += f"   Content: {preview}...\n"
+                        context += f"   Content Snippet: {preview}...\n"
                     context += "\n"
                 
-                logger.info(f"✅ Found {len(results)} files")
                 return context
             else:
-                logger.error(f"RAG search failed with status {response.status_code}")
-                return "Error searching files. The file organization service may not be running."
+                return "System Notification: Search service is currently unavailable."
             
-        except requests.exceptions.Timeout:
-            logger.error("RAG search timeout")
-            return "Search timeout. The file organization service is taking too long to respond."
-        except requests.exceptions.ConnectionError:
-            logger.error("Cannot connect to file organizer service")
-            return "Cannot connect to file organization service. Make sure it's running on port 5001."
         except Exception as e:
             logger.error(f"RAG search error: {e}")
-            return f"Error searching files: {str(e)}"
+            return "System Notification: Unable to perform search due to a connection error."
     
     def generate_response(self, user_message, store_history=True):
         """Generate response with RAG context when needed"""
@@ -109,11 +94,11 @@ Always search first, then answer based on the actual file contents you find."""
                 logger.info(f"📚 User query needs RAG search: {user_message}")
                 rag_context = self.search_files(user_message)
                 
-                if rag_context and "No files found" not in rag_context and "Error" not in rag_context:
+                if rag_context:
                     # Add RAG results as context
                     messages.append({
                         "role": "system",
-                        "content": f"File search results:\n{rag_context}\n\nUse this information to answer the user's question."
+                        "content": f"{rag_context}\n\nUse the information above to answer the user's question."
                     })
             
             # Add current user message
@@ -129,17 +114,6 @@ Always search first, then answer based on the actual file contents you find."""
             
             response_text = response['message']['content']
             
-            # If RAG found nothing and user was asking about a file, be helpful
-            if rag_context and "No files found" in rag_context:
-                response_text = f"I couldn't find a file matching '{user_message}'. This could mean:\n\n" \
-                              f"1. The file hasn't been processed yet by the AI organizer\n" \
-                              f"2. The file might be in a watched folder that needs scanning\n" \
-                              f"3. The filename might be different\n\n" \
-                              f"Try:\n" \
-                              f"- Processing the folder containing the file in the File Explorer tab\n" \
-                              f"- Checking if the file is in a watched folder\n" \
-                              f"- Searching for keywords from the file instead of the exact filename"
-            
             # Save to history
             if store_history:
                 self.conversation_history.append({
@@ -147,14 +121,11 @@ Always search first, then answer based on the actual file contents you find."""
                     "assistant": response_text
                 })
             
-            logger.info("✅ Response generated")
             return response_text
         
         except Exception as e:
             logger.error(f"Error generating response: {e}", exc_info=True)
-            import traceback
-            traceback.print_exc()
-            return f"I encountered an error: {str(e)}\n\nMake sure the file organization service is running and you've processed some files."
+            return f"I encountered an error connecting to my brain. Please ensure the backend is running."
     
     def _should_use_rag(self, message: str) -> bool:
         """Determine if query needs file search"""

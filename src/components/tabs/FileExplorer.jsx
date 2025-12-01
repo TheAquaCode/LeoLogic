@@ -52,6 +52,15 @@ const FileExplorer = ({ isChatMaximized }) => {
     saveToStorage('QUICK_SORT_EXPANDED', isQuickSortExpanded);
   }, [isQuickSortExpanded]);
 
+  // Persist categories to localStorage whenever they change
+  useEffect(() => {
+    try {
+      saveToStorage('categories', Array.isArray(categories) ? categories : []);
+    } catch (e) {
+      console.error('Error saving categories to storage:', e);
+    }
+  }, [categories]);
+
   // Check backend status and load data
   useEffect(() => {
     loadData();
@@ -124,8 +133,14 @@ const FileExplorer = ({ isChatMaximized }) => {
         }
           
         if (categoriesResult.status === 'fulfilled') {
-          const categoriesData = categoriesResult.value;
-          setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+          const categoriesData = Array.isArray(categoriesResult.value) ? categoriesResult.value : [];
+          setCategories(categoriesData);
+          // save fetched categories so they are available instantly next load
+          try {
+            saveToStorage('categories', categoriesData);
+          } catch (e) {
+            console.error('Error saving fetched categories to storage:', e);
+          }
         }
       }
     } catch (error) {
@@ -414,8 +429,9 @@ const FileExplorer = ({ isChatMaximized }) => {
           setProcessingProgress(updated);
           try { localStorage.setItem('processing_progress', JSON.stringify(updated)); } catch {}
 
-          // If completed
-          if (updated[folderId].total > 0 && updated[folderId].completed >= updated[folderId].total) {
+          // If completed (success + failed >= total)
+          const totalProcessed = (updated[folderId].completed || 0) + (updated[folderId].failed || 0);
+          if (updated[folderId].total > 0 && totalProcessed >= updated[folderId].total) {
             // stop polling, clear stored processing folder after a short delay
             clearInterval(progressPollRef.current);
             progressPollRef.current = null;
@@ -447,7 +463,8 @@ const FileExplorer = ({ isChatMaximized }) => {
     try {
       if (backendStatus === 'online') {
         const result = await apiService.addCategory(categoryData);
-        setCategories([...categories, result.category]);
+        setCategories(prev => [...prev, result.category]);
+        // localStorage will be updated by the categories useEffect above
       } else {
         // Local fallback
         const newCategory = {
@@ -458,8 +475,9 @@ const FileExplorer = ({ isChatMaximized }) => {
           rules: 0,
           color: 'bg-blue-500'
         };
-        setCategories([...categories, newCategory]);
-        saveToStorage('categories', [...categories, newCategory]);
+        const updated = [...categories, newCategory];
+        setCategories(updated);
+        saveToStorage('categories', updated);
       }
     } catch (error) {
       console.error('Error adding category:', error);
@@ -633,11 +651,7 @@ const FileExplorer = ({ isChatMaximized }) => {
             </p>
           )}
           
-          {backendStatus !== 'online' && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
-              Backend must be online to process files.
-            </p>
-          )}
+          
         </div>
       </div>
 

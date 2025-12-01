@@ -2,6 +2,18 @@ import React from 'react';
 import { FolderOpen } from 'lucide-react';
 
 const ChatMessage = ({ message }) => {
+  // Simple Markdown Bold Parser
+  const formatMessage = (content) => {
+    if (!content) return null;
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
   return (
     <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex items-start space-x-3 max-w-3xl ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
@@ -23,7 +35,9 @@ const ChatMessage = ({ message }) => {
               ? 'bg-gray-100 text-gray-900' 
               : 'bg-blue-600 text-white'
           }`}>
-            <p className="text-sm leading-relaxed">{message.content}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {formatMessage(message.content)}
+            </p>
           </div>
           <span className="text-xs text-gray-500 mt-1">{message.timestamp}</span>
         </div>

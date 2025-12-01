@@ -52,6 +52,18 @@ class APIService {
     return this.request('/health');
   }
 
+  // Settings
+  async getSettings() {
+    return this.request('/settings');
+  }
+
+  async updateSettings(settings) {
+    return this.request('/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+  }
+
   // Watched Folders
   async getWatchedFolders() {
     const data = await this.request('/watched-folders');

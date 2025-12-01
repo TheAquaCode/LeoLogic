@@ -9,7 +9,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
     {
       id: 1,
       type: 'ai',
-      content: "Hi! I'm your AI file organizer. I can help you sort, categorize, and manage your files. What would you like me to help you with today?",
+      content: "Hi! I'm Clanky. I can help you find, sort, and understand your files. What can I do for you?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -25,6 +25,18 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
   
   const chatRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // Simple Markdown Bold Parser
+  const formatMessage = (content) => {
+    if (!content) return null;
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
 
   // Check backend health
   useEffect(() => {
@@ -233,7 +245,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
             </>
           )}
 
-          {/* Header - Draggable - UPDATED WITH LOGO */}
+          {/* Header - Draggable */}
           <div
             onMouseDown={handleMouseDown}
             className={`text-white px-4 py-3 ${isMaximized ? '' : 'rounded-t-lg'} ${isMaximized ? 'cursor-default' : 'cursor-move'} flex items-center justify-between select-none`}
@@ -295,7 +307,10 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                         ? 'bg-gray-100 text-gray-900' 
                         : 'bg-blue-600 text-white'
                     }`}>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      {/* Use formatMessage to render bold text */}
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {formatMessage(message.content)}
+                      </p>
                     </div>
                     <span className="text-xs text-gray-500 mt-1.5">{message.timestamp}</span>
                   </div>

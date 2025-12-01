@@ -1,59 +1,46 @@
 """
-File System Watcher
-Monitors folders for new files and processes them automatically
+File System Watcher & Scanner
+Monitors folders for new files based on configured frequency.
 """
 
 import time
+import threading
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from config.settings import load_user_settings, get_settings_hash
 from .state import state
 from .file_processor import process_file
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# Global scanner control
+scanner_thread = None
+stop_scanner = threading.Event()
 
 class FileHandler(FileSystemEventHandler):
-    """Handle file system events"""
+    """Handle Real-time file system events"""
     
     def __init__(self, folder_id: int):
         self.folder_id = folder_id
-        self.processing_delay = 1.0  # Wait 1 second before processing
+        self.processing_delay = 1.0
         self.pending_files = {}
     
     def on_created(self, event):
-        """Handle file creation"""
-        if event.is_directory:
-            return
-        
-        file_path = event.src_path
-        logger.info(f"New file detected: {file_path}")
-        
-        # Add to pending queue with timestamp
-        self.pending_files[file_path] = time.time()
+        if event.is_directory: return
+        self._queue_file(event.src_path)
     
     def on_modified(self, event):
-        """Handle file modification"""
-        if event.is_directory:
-            return
-        
-        file_path = event.src_path
-        # Update timestamp if already pending
-        if file_path in self.pending_files:
-            self.pending_files[file_path] = time.time()
+        if event.is_directory: return
+        self._queue_file(event.src_path)
+
+    def _queue_file(self, file_path):
+        if not state.auto_organize: return
+        self.pending_files[file_path] = time.time()
     
     def process_pending_files(self):
-        # Check if auto-organize is enabled
         if not state.auto_organize:
-            # Clear pending files if auto-organize is disabled
-            self.pending_files.clear()
-            return
-        
-        # Check if this folder is active
-        folder = next((f for f in state.watched_folders if f["id"] == self.folder_id), None)
-        if not folder or folder.get("status") != "Active":
-            # Don't process if folder is paused or not found
             self.pending_files.clear()
             return
         
@@ -65,23 +52,54 @@ class FileHandler(FileSystemEventHandler):
                 files_to_process.append(file_path)
                 del self.pending_files[file_path]
         
+        current_settings_hash = get_settings_hash()
+        
         for file_path in files_to_process:
-            if Path(file_path).exists():
+            if should_process_file(file_path, current_settings_hash):
                 try:
                     process_file(file_path, self.folder_id)
                 except Exception as e:
-                    logger.error(f"Error processing {file_path}: {e}", exc_info=True)
+                    logger.error(f"Error processing {file_path}: {e}")
 
+def should_process_file(file_path: str, current_settings_hash: str) -> bool:
+    """
+    Determine if a file should be processed based on cache.
+    Prevents infinite loops on skipped files.
+    """
+    path_obj = Path(file_path)
+    if not path_obj.exists():
+        return False
+        
+    # Skip hidden files if configured
+    settings = load_user_settings() or {}
+    if settings.get('skipHiddenFiles', True) and path_obj.name.startswith('.'):
+        return False
+
+    str_path = str(file_path)
+    current_mtime = path_obj.stat().st_mtime
+    
+    cached = state.processed_cache.get(str_path)
+    
+    if not cached:
+        return True # New file
+        
+    # If file modified since last check
+    if cached.get('mtime', 0) != current_mtime:
+        logger.debug(f"File modified, re-processing: {path_obj.name}")
+        return True
+        
+    # If settings changed since last check (e.g. thresholds lowered)
+    if cached.get('settings_hash') != current_settings_hash:
+        logger.debug(f"Settings changed, re-processing: {path_obj.name}")
+        return True
+        
+    # If it was skipped previously and nothing changed, ignore it
+    return False
 
 def start_watching(folder_id: int, folder_path: str):
-    """Start watching a folder for new files"""
-    if folder_id in state.observers:
-        logger.warning(f"Already watching folder {folder_id}")
-        return
-    
-    if not Path(folder_path).exists():
-        logger.error(f"Folder does not exist: {folder_path}")
-        return
+    """Start real-time watchdog for a folder"""
+    if folder_id in state.observers: return
+    if not Path(folder_path).exists(): return
     
     event_handler = FileHandler(folder_id)
     observer = Observer()
@@ -93,34 +111,102 @@ def start_watching(folder_id: int, folder_path: str):
         "handler": event_handler
     }
     
-    logger.info(f"Watching folder: {folder_path}")
-    
-    # Start processing loop in background
+    # Internal loop just for the debouncer of this folder
     def processing_loop():
-        while folder_id in state.observers:
+        while folder_id in state.observers and not stop_scanner.is_set():
             event_handler.process_pending_files()
             time.sleep(0.5)
     
-    from threading import Thread
-    thread = Thread(target=processing_loop, daemon=True)
-    thread.start()
-
+    threading.Thread(target=processing_loop, daemon=True).start()
 
 def stop_watching(folder_id: int):
-    """Stop watching a folder"""
-    if folder_id not in state.observers:
-        return
-    
-    observer_data = state.observers[folder_id]
-    observer_data["observer"].stop()
-    observer_data["observer"].join()
-    
+    if folder_id not in state.observers: return
+    data = state.observers[folder_id]
+    data["observer"].stop()
+    data["observer"].join()
     del state.observers[folder_id]
-    logger.info(f"Stopped watching folder {folder_id}")
 
+def stop_all_watchers():
+    """Stop all real-time observers"""
+    for folder_id in list(state.observers.keys()):
+        stop_watching(folder_id)
 
 def start_all_watchers():
-    """Start watching all active folders"""
+    """Start monitoring based on settings"""
+    settings = load_user_settings() or {}
+    frequency = settings.get('scanFrequency', 'Hourly')
+    
+    logger.info(f"Starting Scan System. Auto-Organize: {state.auto_organize}, Freq: {frequency}")
+    
+    # Stop existing threads/watchers
+    stop_scanner.set()
+    if scanner_thread:
+        scanner_thread.join(timeout=2)
+    stop_all_watchers()
+    stop_scanner.clear()
+
+    if not state.auto_organize:
+        logger.info("Auto-organize disabled.")
+        return
+
+    if frequency == 'Manual':
+        logger.info("Scan frequency is Manual. No background scanning.")
+        return
+
+    # Real-time mode: Use Watchdog
+    if frequency == 'Real-time':
+        logger.info("Starting Real-time Watchers...")
+        for folder in state.watched_folders:
+            if folder.get("status") == "Active":
+                start_watching(folder["id"], folder["path"])
+    
+    # Periodic mode: Start background scanner thread
+    else:
+        interval_map = {
+            'Every 5 minutes': 300,
+            'Hourly': 3600,
+            'Daily': 86400
+        }
+        interval = interval_map.get(frequency, 3600)
+        logger.info(f"Starting Periodic Scanner (Interval: {interval}s)...")
+        
+        global scanner_thread_obj
+        scanner_thread_obj = threading.Thread(
+            target=periodic_scan_loop, 
+            args=(interval,), 
+            daemon=True
+        )
+        scanner_thread_obj.start()
+
+def periodic_scan_loop(interval):
+    """Background loop for periodic scanning"""
+    logger.info("Periodic scanner started.")
+    while not stop_scanner.is_set():
+        if state.auto_organize:
+            run_scan_pass()
+        
+        # Sleep in chunks to allow responsive stopping
+        for _ in range(int(interval)):
+            if stop_scanner.is_set(): break
+            time.sleep(1)
+
+def run_scan_pass():
+    """Iterate active folders and process new/changed files"""
+    logger.debug("Running scan pass...")
+    settings_hash = get_settings_hash()
+    
     for folder in state.watched_folders:
-        if folder.get("status") == "Active":
-            start_watching(folder["id"], folder["path"])
+        if folder.get("status") != "Active": continue
+        
+        path = Path(folder["path"])
+        if not path.exists(): continue
+        
+        # Scan files
+        for file_path in path.iterdir():
+            if file_path.is_file():
+                if should_process_file(str(file_path), settings_hash):
+                    try:
+                        logger.info(f"Scanner picked up: {file_path.name}")
+                        process_file(str(file_path), folder["id"])
+                    except Exception as e:
+                        logger.error(f"Error processing {file_path}: {e}")
