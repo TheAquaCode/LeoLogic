@@ -1,6 +1,6 @@
 """
-Enhanced Ollama Chatbot with RAG Integration & Comprehensive Tool Use
-Supports: Categories, Folders, Watched Folders, RAG Search, File Layout Queries
+Enhanced Ollama Chatbot with Smart RAG vs File Layout Detection
+Automatically determines whether to search RAG data or show folder structure
 """
 
 import ollama
@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])
 from utils.logger import setup_logger
-from file_organizer import tools  # This imports your enhanced tools
+from file_organizer import tools
 
 logger = setup_logger(__name__)
 
@@ -33,7 +33,7 @@ class OllamaChatbot:
         self.loading = False
 
     def _get_system_instruction(self):
-        """Enhanced System Prompt with all available tools"""
+        """Enhanced System Prompt with smart tool selection"""
         status = tools.get_system_status()
 
         return f"""You are Clanky, an automated File Organizer assistant.
@@ -49,7 +49,7 @@ AVAILABLE TOOLS:
    - Example: {{"tool": "create_category", "args": {{"name": "Work Docs", "path": "Documents/Work"}}}}
 
 2. create_folder(path, folder_name)
-   - Creates a regular folder on the file system (not for organizing)
+   - Creates a regular folder on the file system
    - Example: {{"tool": "create_folder", "args": {{"path": "Desktop", "folder_name": "New Project"}}}}
 
 3. add_watched_folder(path)
@@ -61,12 +61,14 @@ AVAILABLE TOOLS:
    - Example: {{"tool": "sort_folder", "args": {{"folder_name": "Downloads"}}}}
 
 5. search_rag(query, max_results)
-   - Searches processed file data to answer questions about files
-   - Example: {{"tool": "search_rag", "args": {{"query": "contract documents", "max_results": 5}}}}
+   - Searches PROCESSED FILE CONTENT to answer questions about specific files/documents
+   - Use ONLY when user asks about FILE CONTENT (documents, reports, invoices, etc.)
+   - Example: {{"tool": "search_rag", "args": {{"query": "tax documents", "max_results": 5}}}}
 
 6. get_file_layout(path, depth)
-   - Shows folder/file structure at a location
-   - Example: {{"tool": "get_file_layout", "args": {{"path": "Documents", "depth": 2}}}}
+   - Shows the ACTUAL folder/file structure at a location
+   - Use when user asks "what's in", "show me", "list files/folders", "what folders do I have"
+   - Example: {{"tool": "get_file_layout", "args": {{"path": "Desktop", "depth": 2}}}}
 
 7. list_categories()
    - Lists all configured categories
@@ -76,36 +78,119 @@ AVAILABLE TOOLS:
    - Lists all watched folders with their status
    - Example: {{"tool": "list_watched_folders", "args": {{}}}}
 
+CRITICAL DISTINCTIONS:
+
+**Use get_file_layout() when user asks:**
+- "What folders are on my Desktop?"
+- "Show me what's in my Documents"
+- "List the files in Downloads"
+- "What do I have in Pictures?"
+- "What's on my Desktop?"
+- ANY question about folder/file structure or "what's in" a location
+
+**Use search_rag() when user asks:**
+- "Find my tax returns"
+- "Do I have any invoices?"
+- "Show me documents about contracts"
+- "Find files related to work projects"
+- ANY question about FILE CONTENT or searching for specific documents
+
 INSTRUCTIONS:
-- When the user asks to perform an action, return ONLY a JSON object
-- Format: {{"tool": "tool_name", "args": {{"arg1": "value", "arg2": "value"}}}}
+- When user asks about folder contents/structure → ALWAYS use get_file_layout()
+- When user asks about finding specific files by content → use search_rag()
+- Return ONLY JSON for actions: {{"tool": "tool_name", "args": {{"arg1": "value"}}}}
 - Do NOT wrap in markdown code blocks (no ```json)
-- If NO action is needed (just answering questions), reply with normal conversational text
-- Use create_category for organizing destinations
-- Use add_watched_folder for monitoring source folders
-- Use create_folder for general folder creation
-- When user asks about files or documents, use search_rag
-- When user asks about folder structure, use get_file_layout
+- For normal conversation, reply with text (no JSON)
 
 EXAMPLES:
-User: "Make a category called Photos in my Pictures folder"
-Response: {{"tool": "create_category", "args": {{"name": "Photos", "path": "Pictures"}}}}
 
-User: "Watch my Downloads folder"
-Response: {{"tool": "add_watched_folder", "args": {{"path": "Downloads"}}}}
-
-User: "Create a folder called Projects on my Desktop"
-Response: {{"tool": "create_folder", "args": {{"path": "Desktop", "folder_name": "Projects"}}}}
-
-User: "What files do I have about taxes?"
-Response: {{"tool": "search_rag", "args": {{"query": "taxes", "max_results": 5}}}}
+User: "What folders do I have on my Desktop?"
+Response: {{"tool": "get_file_layout", "args": {{"path": "Desktop", "depth": 1}}}}
 
 User: "Show me what's in my Documents folder"
 Response: {{"tool": "get_file_layout", "args": {{"path": "Documents", "depth": 2}}}}
 
-User: "What categories do I have?"
-Response: {{"tool": "list_categories", "args": {{}}}}
+User: "Find my tax returns"
+Response: {{"tool": "search_rag", "args": {{"query": "tax returns", "max_results": 5}}}}
+
+User: "What's on my Desktop?"
+Response: {{"tool": "get_file_layout", "args": {{"path": "Desktop", "depth": 1}}}}
+
+User: "Do I have any invoices?"
+Response: {{"tool": "search_rag", "args": {{"query": "invoices", "max_results": 5}}}}
 """
+
+    def _detect_query_type(self, message: str) -> str:
+        """
+        Detect if user is asking about:
+        - 'layout': Folder structure / what's in a location
+        - 'content': Searching for specific file content
+        - 'action': Wants to perform an action
+        - 'chat': Just conversational
+        """
+        message_lower = message.lower()
+
+        # Layout queries - asking about folder structure
+        layout_keywords = [
+            "what folders",
+            "what files",
+            "what's in",
+            "what is in",
+            "show me",
+            "list files",
+            "list folders",
+            "what do i have in",
+            "what's on",
+            "what is on",
+            "contents of",
+            "in my desktop",
+            "on my desktop",
+            "folders on",
+            "files on",
+            "folders in",
+            "files in",
+        ]
+
+        # Content queries - searching for specific documents
+        content_keywords = [
+            "find",
+            "search",
+            "look for",
+            "do i have any",
+            "where is my",
+            "locate",
+            "documents about",
+            "files about",
+            "invoices",
+            "contracts",
+            "reports",
+            "receipts",
+            "tax",
+            "returns",
+        ]
+
+        # Check for layout queries first (more specific)
+        if any(keyword in message_lower for keyword in layout_keywords):
+            return "layout"
+
+        # Check for content queries
+        if any(keyword in message_lower for keyword in content_keywords):
+            return "content"
+
+        # Check for action queries
+        action_keywords = ["create", "make", "add", "watch", "sort", "organize", "move"]
+        if any(keyword in message_lower for keyword in action_keywords):
+            return "action"
+
+        return "chat"
+
+    def _inject_context_hint(self, message: str, query_type: str) -> str:
+        """Add a hint to the message to guide the AI"""
+        if query_type == "layout":
+            return f"{message}\n\n[SYSTEM HINT: User is asking about folder structure. Use get_file_layout tool.]"
+        elif query_type == "content":
+            return f"{message}\n\n[SYSTEM HINT: User is searching for specific file content. Use search_rag tool.]"
+        return message
 
     def search_files(self, query: str) -> Optional[str]:
         """Search through RAG data via the file organizer API"""
@@ -136,7 +221,6 @@ Response: {{"tool": "list_categories", "args": {{}}}}
         try:
             logger.info(f"🔧 Tool Exec: {tool_name} {args}")
 
-            # Use the tools module which has all the functions
             if tool_name == "create_category":
                 return tools.create_category(args.get("name"), args.get("path"))
 
@@ -170,93 +254,12 @@ Response: {{"tool": "list_categories", "args": {{}}}}
             logger.error(f"Tool execution error: {e}")
             return f"Tool Error: {str(e)}"
 
-    def _detect_intent(self, message: str) -> Optional[Dict[str, Any]]:
-        """
-        Detect user intent and suggest tool usage for better accuracy.
-        This helps catch commands even if AI doesn't output perfect JSON.
-        """
-        message_lower = message.lower()
-
-        # Category creation patterns
-        if any(
-            word in message_lower
-            for word in [
-                "make category",
-                "create category",
-                "add category",
-                "new category",
-            ]
-        ):
-            return {"intent": "create_category", "confidence": "high"}
-
-        # Folder creation patterns
-        if any(
-            word in message_lower
-            for word in ["make folder", "create folder", "new folder", "make a folder"]
-        ):
-            # Distinguish from "watch folder"
-            if "watch" not in message_lower and "monitor" not in message_lower:
-                return {"intent": "create_folder", "confidence": "high"}
-
-        # Watched folder patterns
-        if any(
-            word in message_lower
-            for word in ["watch", "monitor", "track folder", "add watched"]
-        ):
-            return {"intent": "add_watched_folder", "confidence": "high"}
-
-        # Sort/process patterns
-        if any(
-            word in message_lower
-            for word in ["sort", "organize", "process files", "clean up"]
-        ):
-            return {"intent": "sort_folder", "confidence": "medium"}
-
-        # Search patterns
-        if any(
-            word in message_lower
-            for word in [
-                "find file",
-                "search for",
-                "look for",
-                "files about",
-                "documents about",
-            ]
-        ):
-            return {"intent": "search_rag", "confidence": "high"}
-
-        # File layout patterns
-        if any(
-            word in message_lower
-            for word in [
-                "show me",
-                "what's in",
-                "list files",
-                "folder structure",
-                "directory",
-            ]
-        ):
-            return {"intent": "get_file_layout", "confidence": "medium"}
-
-        # List patterns
-        if (
-            "list categories" in message_lower
-            or "show categories" in message_lower
-            or "what categories" in message_lower
-        ):
-            return {"intent": "list_categories", "confidence": "high"}
-
-        if (
-            "list watched" in message_lower
-            or "show watched" in message_lower
-            or "what folders are" in message_lower
-        ):
-            return {"intent": "list_watched_folders", "confidence": "high"}
-
-        return None
-
     def generate_response(self, user_message: str) -> str:
         try:
+            # Detect query type
+            query_type = self._detect_query_type(user_message)
+            logger.info(f"Detected query type: {query_type}")
+
             # Build message context
             messages = [{"role": "system", "content": self._get_system_instruction()}]
 
@@ -265,17 +268,17 @@ Response: {{"tool": "list_categories", "args": {{}}}}
                 messages.append({"role": "user", "content": msg["user"]})
                 messages.append({"role": "assistant", "content": msg["assistant"]})
 
-            # Check if RAG search might be useful
-            if ENABLE_RAG and any(
-                word in user_message.lower()
-                for word in ["find", "search", "file", "document"]
-            ):
+            # Add context hint to guide AI
+            enhanced_message = self._inject_context_hint(user_message, query_type)
+
+            # ONLY add RAG context for content queries (not layout queries)
+            if ENABLE_RAG and query_type == "content":
                 rag = self.search_files(user_message)
                 if rag:
                     messages.append({"role": "system", "content": rag})
 
             # Add current user message
-            messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": enhanced_message})
 
             # Get AI response
             response = self.client.chat(model=PHI3_MODEL, messages=messages)
@@ -298,11 +301,19 @@ Response: {{"tool": "list_categories", "args": {{}}}}
                         # Execute the tool
                         result = self.execute_tool(tool_name, args)
 
-                        # Generate a natural language summary
+                        # For get_file_layout, return result directly without AI summary
+                        if tool_name == "get_file_layout":
+                            # Just return the file layout directly
+                            self.conversation_history.append(
+                                {"user": user_message, "assistant": result}
+                            )
+                            return result
+
+                        # For other tools, generate a natural language summary
                         confirm_msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a helpful assistant. Provide a brief, friendly confirmation based on the SYSTEM OUTPUT. Be natural and concise.",
+                                "content": "You are a helpful assistant. Provide a brief, friendly confirmation based on the SYSTEM OUTPUT. Be natural and concise. Do NOT mention RAG data or system internals.",
                             },
                             {
                                 "role": "user",
@@ -325,13 +336,21 @@ Response: {{"tool": "list_categories", "args": {{}}}}
                 except json.JSONDecodeError:
                     pass
 
-            # Fallback: Intent detection for robustness
-            intent = self._detect_intent(user_message)
-            if intent and intent["confidence"] == "high":
-                # Could implement fallback tool execution here if desired
-                pass
-
             # No tool execution needed - just conversational response
+            # Remove any mentions of RAG data from conversational responses
+            ai_text = re.sub(
+                r"based on (?:your )?RAG data[,:]?\s*", "", ai_text, flags=re.IGNORECASE
+            )
+            ai_text = re.sub(
+                r"according to (?:your )?RAG data[,:]?\s*",
+                "",
+                ai_text,
+                flags=re.IGNORECASE,
+            )
+            ai_text = re.sub(
+                r"from (?:your )?RAG data[,:]?\s*", "", ai_text, flags=re.IGNORECASE
+            )
+
             self.conversation_history.append(
                 {"user": user_message, "assistant": ai_text}
             )
