@@ -61,10 +61,22 @@ const FileExplorer = ({ isChatMaximized }) => {
     }
   }, [categories]);
 
-  // Check backend status and load data
+  // Check backend status and load data (Manual trigger)
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
+
+  // Automatic Polling for Updates (e.g. from Chatbot)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Don't poll if we are in the middle of a heavy operation to avoid jitter
+      if (!isProcessingAll && !processingFolder) {
+        loadData();
+      }
+    }, 4000); // Check every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [isProcessingAll, processingFolder]);
 
   // Resume polling if a processing job was active when component mounted
   useEffect(() => {
@@ -100,8 +112,6 @@ const FileExplorer = ({ isChatMaximized }) => {
   };
 
   const loadData = async () => {
-    console.log('Loading data, trigger:', refreshTrigger);
-    
     try {
       const isOnline = await checkBackendStatus();
       if (isOnline) {
@@ -115,15 +125,18 @@ const FileExplorer = ({ isChatMaximized }) => {
           const foldersData = foldersResult.value;
           setWatchedFolders(prev => {
             const newFolders = Array.isArray(foldersData) ? foldersData : [];
+            
+            // Only update if data actually changed to prevent re-renders?
+            // For now, mapping ensures local status is preserved if backend doesn't track it fully yet,
+            // though backend is authoritative for ID and Path.
             const updatedFolders = newFolders.map(newFolder => {
               const localFolder = prev.find(f => f.id === newFolder.id);
               const fileCount = Number(newFolder.fileCount ?? 0);
               
-              console.log(`Processing folder ${newFolder.name}, count:`, fileCount);
-              
               return {
                 ...newFolder,
-                status: localFolder?.status || 'Active',
+                // If backend sent a status, use it, otherwise fall back to local or Active
+                status: newFolder.status || localFolder?.status || 'Active',
                 fileCount: isNaN(fileCount) ? 0 : fileCount
               };
             });
@@ -144,8 +157,10 @@ const FileExplorer = ({ isChatMaximized }) => {
         }
       }
     } catch (error) {
-      console.error('Error loading data:', error);
-      setError(error.message);
+      // Silent error on polling to avoid spam
+      if (!isProcessingAll) {
+        console.error('Error loading data:', error);
+      }
     }
   };
 

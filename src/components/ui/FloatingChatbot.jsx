@@ -54,15 +54,22 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Scroll to bottom when messages change OR when window opens
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (isOpen) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
+  }, [messages, isOpen]);
 
+  // Sync maximization state
+  // FIX: Only report as maximized to the parent if the window is actually OPEN.
   useEffect(() => {
     if (onMaximizeChange) {
-      onMaximizeChange(isMaximized);
+      onMaximizeChange(isOpen && isMaximized);
     }
-  }, [isMaximized, onMaximizeChange]);
+  }, [isMaximized, isOpen, onMaximizeChange]);
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isLoading) return;
@@ -273,7 +280,7 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  setIsMaximized(false);
+                  // Keep isMaximized=true so it reopens docked, but useEffect will tell parent it's undocked
                 }}
                 className="p-1.5 hover:bg-gray-800 rounded transition-colors"
               >
@@ -307,7 +314,6 @@ const FloatingChatbot = ({ onMaximizeChange }) => {
                         ? 'bg-gray-100 text-gray-900' 
                         : 'bg-blue-600 text-white'
                     }`}>
-                      {/* Use formatMessage to render bold text */}
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
                         {formatMessage(message.content)}
                       </p>

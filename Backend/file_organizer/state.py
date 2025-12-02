@@ -2,7 +2,7 @@ from threading import Lock
 import json
 from pathlib import Path
 from datetime import datetime
-from config.settings import DATA_DIR
+from config.settings import DATA_DIR, CONFIG_FILE
 
 CACHE_FILE = DATA_DIR / "processed_files_cache.json"
 
@@ -29,7 +29,7 @@ class FileOrganizerState:
         }
         self.processing_progress = {}
         
-        # Cache to track processed files: { file_path: { mtime, settings_hash, status } }
+        # Cache to track processed files
         self.processed_cache = self._load_cache()
 
     def _load_cache(self):
@@ -64,5 +64,18 @@ class FileOrganizerState:
             for folder in self.watched_folders:
                 if folder['id'] == folder_id:
                     folder['last_activity_timestamp'] = datetime.now().timestamp()
+
+    def save_to_disk(self):
+        """Persist current configuration (folders/categories) to disk"""
+        try:
+            config = {
+                'watched_folders': self.watched_folders,
+                'categories': self.categories,
+                'auto_organize': self.auto_organize
+            }
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving config state: {e}")
 
 state = FileOrganizerState()

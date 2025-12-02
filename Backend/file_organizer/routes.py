@@ -1,23 +1,32 @@
 """
 API Routes for File Organizer
+Includes history tracking and settings endpoints
 """
 
 import json
 import os
 import threading
+import stat
+import shutil
 from pathlib import Path
 from flask import request, jsonify
 from datetime import datetime
 from config.settings import CONFIG_FILE, DATA_DIR, load_user_settings, save_user_settings
-from .state import state
+from .state import state, CACHE_FILE
 from .file_watcher import start_watching, stop_watching, start_all_watchers
 from .file_processor import process_file
 from .rag_generator import RAGGenerator
 from .file_counter import count_files_in_folder
-from utils.logger import update_log_level # Import log updater
+from utils.logger import update_log_level, setup_logger
 from config import settings as cfg
 
+logger = setup_logger(__name__)
+
 HISTORY_FILE = DATA_DIR / "file_history.json"
+RAG_DATA_DIR = DATA_DIR / "rag_data"
+TEMP_UPLOADS_DIR = DATA_DIR / "temp_uploads"
+
+# ... (Previous helper functions load_config, save_config, etc. stay same) ...
 
 def load_config():
     if CONFIG_FILE.exists():
@@ -25,7 +34,6 @@ def load_config():
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 state.watched_folders = config.get('watched_folders', [])
-                # Ensure last_activity_timestamp exists
                 for f in state.watched_folders:
                     if 'last_activity_timestamp' not in f:
                         f['last_activity_timestamp'] = 0
@@ -69,44 +77,76 @@ def calculate_time_ago(timestamp):
         else: return f"{int(diff / 86400)}d ago"
     except: return "Never"
 
+def is_hidden_check(path):
+    if path.name.startswith('.'): return True
+    if os.name == 'nt':
+        try:
+            attrs = path.stat().st_file_attributes
+            if attrs & stat.FILE_ATTRIBUTE_HIDDEN: return True
+        except: pass
+    return False
+
 def register_routes(app):
+    # ... (health check, settings get/post, etc) ...
     @app.route('/api/health', methods=['GET'])
     def health_check():
-        return jsonify({
-            'status': 'online',
-            'models_ready': state.is_initialized,
-            'watched_folders': len(state.watched_folders),
-            'categories': len(state.categories)
-        })
+        return jsonify({'status': 'online', 'models_ready': state.is_initialized, 'watched_folders': len(state.watched_folders), 'categories': len(state.categories)})
 
     @app.route('/api/settings', methods=['GET'])
     def get_settings():
         settings = load_user_settings()
         if not settings:
-            settings = {
-                'baseTheme': 'light', 'accentColor': 'blue',
-                'confidenceThresholds': {'text': 85, 'images': 80, 'audio': 75, 'video': 70},
-                'fallbackBehavior': 'Skip file', 'preloadModels': True,
-                'modelToggles': {'textClassification': True, 'imageRecognition': True, 'audioProcessing': True, 'videoAnalysis': True},
-                'scanFrequency': 'Hourly', 'runOnStartup': False, 'desktopNotifications': True,
-                'minimizeToTray': True, 'maxFileSize': 500, 'skipHiddenFiles': True,
-                'preserveMetadata': True, 'createBackups': False, 'logLevel': 'Info'
-            }
+            settings = {'baseTheme': 'light', 'accentColor': 'blue', 'confidenceThresholds': {'text': 85, 'images': 80, 'audio': 75, 'video': 70}, 'fallbackBehavior': 'Skip file', 'preloadModels': True, 'modelToggles': {'textClassification': True, 'imageRecognition': True, 'audioProcessing': True, 'videoAnalysis': True}, 'scanFrequency': 'Hourly', 'runOnStartup': False, 'desktopNotifications': True, 'minimizeToTray': True, 'maxFileSize': 500, 'skipHiddenFiles': True, 'preserveMetadata': True, 'createBackups': False, 'logLevel': 'Info'}
         return jsonify(settings)
 
     @app.route('/api/settings', methods=['POST'])
     def update_settings():
         settings = request.json
         success = save_user_settings(settings)
-        
-        # Apply Logic Settings
-        start_all_watchers() # Restarts scanning (applies frequency)
-        
-        # Apply Log Level
-        if 'logLevel' in settings:
-            update_log_level(settings['logLevel'])
-            
+        start_all_watchers()
+        if 'logLevel' in settings: update_log_level(settings['logLevel'])
         return jsonify({'success': True, 'settings': settings}) if success else (jsonify({'error': 'Failed'}), 500)
+
+    # --- NEW CLEAR CACHE ENDPOINT ---
+    @app.route('/api/settings/clear-cache', methods=['POST'])
+    def clear_cache():
+        try:
+            counts = {'rag': 0, 'temp': 0, 'cache': 0}
+            
+            # 1. Clear RAG Data
+            if RAG_DATA_DIR.exists():
+                for f in RAG_DATA_DIR.iterdir():
+                    if f.is_file() and f.suffix == '.json':
+                        try: 
+                            f.unlink()
+                            counts['rag'] += 1
+                        except: pass
+
+            # 2. Clear Temp Uploads
+            if TEMP_UPLOADS_DIR.exists():
+                for f in TEMP_UPLOADS_DIR.iterdir():
+                    try:
+                        if f.is_file(): f.unlink()
+                        elif f.is_dir(): shutil.rmtree(f)
+                        counts['temp'] += 1
+                    except: pass
+
+            # 3. Clear Scanner Cache File
+            if CACHE_FILE.exists():
+                try:
+                    CACHE_FILE.unlink()
+                    counts['cache'] += 1
+                except: pass
+            
+            # Reset in-memory cache state
+            state.processed_cache = {}
+            
+            logger.info(f"Cache cleared: {counts}")
+            return jsonify({'success': True, 'details': counts})
+            
+        except Exception as e:
+            logger.error(f"Error clearing cache: {e}")
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/settings/auto-organize', methods=['GET', 'POST'])
     def handle_auto_organize():
@@ -120,22 +160,15 @@ def register_routes(app):
     def handle_watched_folders():
         if request.method == 'POST':
             data = request.json
-            new_folder = {
-                'id': len(state.watched_folders) + 1,
-                'name': data['name'], 'path': data['path'],
-                'status': 'Active', 'fileCount': count_files_in_folder(data['path']), 
-                'lastActivity': 'Never', 'last_activity_timestamp': 0
-            }
+            new_folder = {'id': len(state.watched_folders) + 1, 'name': data['name'], 'path': data['path'], 'status': 'Active', 'fileCount': count_files_in_folder(data['path']), 'lastActivity': 'Never', 'last_activity_timestamp': 0}
             state.watched_folders.append(new_folder)
             save_config()
             start_all_watchers()
             return jsonify({'folder': new_folder})
-        
         for folder in state.watched_folders:
             folder['fileCount'] = count_files_in_folder(folder['path'])
             ts = folder.get('last_activity_timestamp', 0)
             folder['lastActivity'] = calculate_time_ago(ts)
-            
         save_config()
         return jsonify(state.watched_folders)
 
@@ -159,11 +192,7 @@ def register_routes(app):
     def handle_categories():
         if request.method == 'POST':
             data = request.json
-            new_category = {
-                'id': len(state.categories) + 1,
-                'name': data['name'], 'path': data['path'],
-                'color': 'bg-blue-500', 'rules': 0
-            }
+            new_category = {'id': len(state.categories) + 1, 'name': data['name'], 'path': data['path'], 'color': 'bg-blue-500', 'rules': 0}
             state.categories.append(new_category)
             save_config()
             return jsonify({'category': new_category})
@@ -175,7 +204,6 @@ def register_routes(app):
             state.categories = [c for c in state.categories if c['id'] != category_id]
             save_config()
             return jsonify({'success': True})
-        
         data = request.json
         category = next((c for c in state.categories if c['id'] == category_id), None)
         if not category: return jsonify({'error': 'Not found'}), 404
@@ -192,7 +220,15 @@ def register_routes(app):
         folder_path = Path(folder['path'])
         if not folder_path.exists(): return jsonify({'error': 'Path does not exist'}), 404
         
-        files = [str(f) for f in folder_path.iterdir() if f.is_file()]
+        settings = load_user_settings() or {}
+        skip_hidden = settings.get('skipHiddenFiles', True)
+
+        files = []
+        for f in folder_path.iterdir():
+            if f.is_file():
+                if skip_hidden and is_hidden_check(f): continue
+                files.append(str(f))
+
         state.processing_progress[folder_id] = {'total': len(files), 'completed': 0, 'failed': 0, 'in_progress': 0}
         
         def process_in_background():

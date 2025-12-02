@@ -137,11 +137,9 @@ const SettingsPage = ({ isChatMaximized = false }) => {
     logLevel: 'Info',
   };
 
-  // Initialize from storage for instant load
   const [settings, setSettings] = useState(() => {
     try {
       const cached = localStorage.getItem('app_settings');
-      // Merge cached settings with defaults to ensure all keys exist
       return cached ? { ...defaultSettings, ...JSON.parse(cached) } : defaultSettings;
     } catch {
       return defaultSettings;
@@ -149,34 +147,26 @@ const SettingsPage = ({ isChatMaximized = false }) => {
   });
 
   const [activeTab, setActiveTab] = useState('general');
-  // No blocking loading state - UI renders instantly
-  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'saved', 'error'
+  const [saveStatus, setSaveStatus] = useState(null);
 
-  // Load settings from backend on mount (sync)
   useEffect(() => {
     loadSettings();
   }, []);
 
-  // Apply theme whenever it changes
   useEffect(() => {
     applyTheme(settings.baseTheme, settings.accentColor);
   }, [settings.baseTheme, settings.accentColor]);
 
-  // Auto-save settings with debounce
   useEffect(() => {
-    // Only auto-save if we have data and it's different (basic check implies user change)
-    // We use a simple timer here. In a real app, might want to track 'isDirty'.
     const timer = setTimeout(() => {
-      saveSettings(true); // true = silent save
+      saveSettings(true);
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [settings]);
 
   const loadSettings = async () => {
     try {
       const data = await apiService.getSettings();
-      // Update state and cache
       setSettings(prev => ({ ...prev, ...data }));
       localStorage.setItem('app_settings', JSON.stringify({ ...settings, ...data }));
       applyTheme(data.baseTheme, data.accentColor);
@@ -187,10 +177,7 @@ const SettingsPage = ({ isChatMaximized = false }) => {
 
   const saveSettings = async (silent = false) => {
     if (!silent) setSaveStatus('saving');
-    
-    // Optimistic update to cache
     localStorage.setItem('app_settings', JSON.stringify(settings));
-
     try {
       await apiService.updateSettings(settings);
       if (!silent) {
@@ -202,6 +189,18 @@ const SettingsPage = ({ isChatMaximized = false }) => {
       if (!silent) {
         setSaveStatus('error');
         setTimeout(() => setSaveStatus(null), 3000);
+      }
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (window.confirm('Clear all cached data (RAG files, temp uploads, scanner cache)? \nYour files and settings will be preserved.')) {
+      try {
+        await apiService.clearCache();
+        sessionStorage.clear();
+        alert('Cache cleared successfully!');
+      } catch (error) {
+        alert('Failed to clear cache: ' + error.message);
       }
     }
   };
@@ -530,18 +529,11 @@ const SettingsPage = ({ isChatMaximized = false }) => {
                       Clear Application Cache
                     </h4>
                     <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      Remove temporary files and cached data
+                      Remove RAG data, temp uploads, and scanner state
                     </p>
                   </div>
                   <button 
-                    onClick={() => {
-                      if (window.confirm('Clear all cached data?')) {
-                        sessionStorage.clear();
-                        localStorage.removeItem('app_settings');
-                        alert('Cache cleared!');
-                        window.location.reload();
-                      }
-                    }}
+                    onClick={handleClearCache}
                     className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap flex-shrink-0"
                   >
                     Clear Cache
