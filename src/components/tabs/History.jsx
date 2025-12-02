@@ -1,3 +1,4 @@
+// src/components/tabs/History.jsx
 import React, { useState, useEffect } from 'react';
 import { FileText, Check, Clock, Image, ArrowRight, RotateCcw, MoreHorizontal, Folder, AlertCircle, Search, ChevronDown } from 'lucide-react';
 import apiService from '../../services/api';
@@ -57,6 +58,7 @@ const StatsCards = ({ stats, isChatMaximized }) => {
 };
 
 const truncatePath = (path, maxLength = 50) => {
+  if (!path) return 'Unknown Path';
   if (path.length <= maxLength) return path;
   
   const parts = path.split(/[/\\]/);
@@ -158,11 +160,11 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(m => 
-        m.filename?.toLowerCase().includes(query) ||
-        m.fromPath?.toLowerCase().includes(query) ||
-        m.toPath?.toLowerCase().includes(query) ||
-        m.category?.toLowerCase().includes(query) ||
-        m.detection?.toLowerCase().includes(query)
+        (m.filename && m.filename.toLowerCase().includes(query)) ||
+        (m.fromPath && m.fromPath.toLowerCase().includes(query)) ||
+        (m.toPath && m.toPath.toLowerCase().includes(query)) ||
+        (m.category && m.category.toLowerCase().includes(query)) ||
+        (m.detection && m.detection.toLowerCase().includes(query))
       );
     }
 
@@ -201,7 +203,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 
   const filteredMovements = getFilteredMovements();
 
-  if (loading) {
+  if (loading && movements.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex items-center justify-center">
         <div className="text-center py-12">
@@ -212,7 +214,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
     );
   }
 
-  if (error) {
+  if (error && movements.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex-1 flex items-center justify-center">
         <div className="text-center py-12">
@@ -261,7 +263,7 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {filteredMovements.map((movement) => (
-            <div key={movement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 relative transition-colors">
+            <div key={movement.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900/50 relative transition-colors">
               {processingUndo === movement.id && (
                 <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 flex items-center justify-center z-10">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
@@ -276,13 +278,13 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <h4 className="font-medium text-gray-900 dark:text-white truncate">{movement.filename}</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white truncate">{movement.filename || 'Unknown File'}</h4>
                       <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{movement.confidence}</span>
                     </div>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className="text-sm text-gray-500 dark:text-gray-400">{movement.timeAgo}</span>
                       <span className="text-gray-300 dark:text-gray-600">•</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{movement.detection}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{movement.detection || 'Unknown'}</span>
                     </div>
                     <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500 dark:text-gray-400">
                       <span className="truncate max-w-[250px]" title={movement.fromPath}>
@@ -407,14 +409,15 @@ const History = ({ isChatMaximized }) => {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray- w-5 h-5" />
             <input
-              type="text"
-              placeholder="Search files, paths, or reasons..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+  type="text"
+  placeholder="Search files, paths, or reasons..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+className="w-full pl-10 pr-4 py-2 bg-white text-gray-900 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+/>
+
           </div>
           
           <div className="relative">
@@ -452,21 +455,13 @@ const History = ({ isChatMaximized }) => {
           isChatMaximized ? 'pr-[500px]' : ''
         }`}
       >
-        {loading ? (
-          <div className="flex items-center justify-center flex-1">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
-          </div>
-        ) : (
-          <>
-            <StatsCards stats={stats} isChatMaximized={isChatMaximized} />
-            <FileMovements 
-              isChatMaximized={isChatMaximized} 
-              searchQuery={searchQuery}
-              actionFilter={actionFilter}
-              timeFilter={timeFilter}
-            />
-          </>
-        )}
+        <StatsCards stats={stats} isChatMaximized={isChatMaximized} />
+        <FileMovements 
+          isChatMaximized={isChatMaximized} 
+          searchQuery={searchQuery}
+          actionFilter={actionFilter}
+          timeFilter={timeFilter}
+        />
       </div>
     </div>
   );
