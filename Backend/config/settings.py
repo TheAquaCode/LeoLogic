@@ -34,15 +34,17 @@ CONFIG_FILE = DATA_DIR / "file_organizer_config.json"
 SETTINGS_FILE = DATA_DIR / "app_settings.json"
 
 # Default confidence thresholds (can be overridden by user settings)
+# CHANGED: All defaults now 50 instead of 85/80/75/70
 DEFAULT_CONFIDENCE_THRESHOLDS = {
-    "text": 0.85,
-    "images": 0.80,
-    "audio": 0.75,
-    "video": 0.70
+    "text": 0.50,
+    "images": 0.50,
+    "audio": 0.50,
+    "video": 0.50,
 }
 
 # Global confidence threshold (fallback)
-CONFIDENCE_THRESHOLD = 0.3
+# CHANGED: From 0.3 to 0.50
+CONFIDENCE_THRESHOLD = 0.50
 
 # Processing Settings
 MAX_WORKERS = 4  # Multi-threaded processing
@@ -78,7 +80,7 @@ def load_user_settings():
     """Load user settings from file"""
     if SETTINGS_FILE.exists():
         try:
-            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"⚠️ Error loading settings: {e}")
@@ -88,7 +90,7 @@ def load_user_settings():
 def save_user_settings(settings):
     """Save user settings to file"""
     try:
-        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
@@ -99,13 +101,10 @@ def save_user_settings(settings):
 def get_confidence_threshold(file_type):
     """Get confidence threshold for a specific file type"""
     settings = load_user_settings()
-    
-    if settings and 'confidenceThresholds' in settings:
-        threshold_percent = settings['confidenceThresholds'].get(file_type, 85)
+    if settings and "confidenceThresholds" in settings:
+        threshold_percent = settings["confidenceThresholds"].get(file_type, 50)
         return threshold_percent / 100.0
-    
-    # Fallback to defaults
-    return DEFAULT_CONFIDENCE_THRESHOLDS.get(file_type, 0.85)
+    return DEFAULT_CONFIDENCE_THRESHOLDS.get(file_type, 0.50)
 
 
 def get_settings_hash():
@@ -114,15 +113,11 @@ def get_settings_hash():
     Used to determine if files should be re-processed.
     """
     settings = load_user_settings() or {}
-    
-    # Extract relevant keys that affect decision making
     relevant = {
-        'confidenceThresholds': settings.get('confidenceThresholds', {}),
-        'modelToggles': settings.get('modelToggles', {}),
-        'fallbackBehavior': settings.get('fallbackBehavior', ''),
-        'skipHiddenFiles': settings.get('skipHiddenFiles', True)
+        "confidenceThresholds": settings.get("confidenceThresholds", {}),
+        "modelToggles": settings.get("modelToggles", {}),
+        "fallbackBehavior": settings.get("fallbackBehavior", ""),
+        "skipHiddenFiles": settings.get("skipHiddenFiles", True),
     }
-    
-    # Create hash
     s = json.dumps(relevant, sort_keys=True)
     return hashlib.md5(s.encode()).hexdigest()

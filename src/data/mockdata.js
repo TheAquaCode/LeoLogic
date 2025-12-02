@@ -1,18 +1,18 @@
-import { 
-  FolderOpen, 
-  Upload, 
-  MessageSquare, 
-  Clock, 
+import {
+  FolderOpen,
+  Upload,
+  MessageSquare,
+  Clock,
   Settings,
   Folder,
   Monitor,
   Image,
   Video,
-  LayoutDashboard  // ADD THIS
+  LayoutDashboard
 } from 'lucide-react';
 
 export const sidebarItems = [
-  { name: 'Dashboard', icon: LayoutDashboard },  // Change to capital D and different icon
+  { name: 'Dashboard', icon: LayoutDashboard },
   { name: 'File Explorer', icon: FolderOpen },
   { name: 'Upload & Scan', icon: Upload },
   { name: 'History', icon: Clock },
@@ -127,7 +127,7 @@ export const initialMessages = [
   {
     id: 1,
     type: 'ai',
-    content: "Hi! I'm your AI file organizer. I can help you sort, categorize, and manage your files. What would you like me to help you with today?",
+    content: "Hi! I'm your AI file organizer. I can help you sort, categorize, and manage your files. What would you like to do today?",
     timestamp: '4:52:33 PM'
   }
 ];
@@ -140,14 +140,15 @@ export const aiResponses = [
   "I can set up automated rules to organize future files as they arrive. What types of files do you work with most often?"
 ];
 
+// CHANGED: All defaults now 50 instead of 85/80/75/70
 export const defaultSettings = {
   confidenceThresholds: {
-    text: 85,
-    images: 80,
-    audio: 75,
-    video: 70
+    text: 50,
+    images: 50,
+    audio: 50,
+    video: 50
   },
-  fallbackBehavior: "Don't move file",
+  fallbackBehavior: "Skip file",
   preloadModels: true,
   modelToggles: {
     textClassification: true,
