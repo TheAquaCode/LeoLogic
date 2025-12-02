@@ -89,7 +89,8 @@ const FileMovements = ({ isChatMaximized, searchQuery, actionFilter, timeFilter 
 
   useEffect(() => {
     loadHistory();
-    const interval = setInterval(loadHistory, 5000);
+    // Poll every 2 seconds for near real-time updates
+    const interval = setInterval(loadHistory, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -381,7 +382,8 @@ const History = ({ isChatMaximized }) => {
 
   useEffect(() => {
     loadStats();
-    const interval = setInterval(loadStats, 5000);
+    // Poll every 2 seconds for near real-time updates
+    const interval = setInterval(loadStats, 2000);
     return () => clearInterval(interval);
   }, []);
 

@@ -1,18 +1,22 @@
 """
-File Processing Pipeline with RAG-First Approach
-1. Extract content
-2. Analyze with AI
-3. Create RAG document
-4. Read RAG and classify
-5. Move file based on RAG classification
+File Processing Pipeline
+1. Check Settings & File constraints
+2. Extract content & Analyze with AI
+3. Determine Destination
+4. Create Backup (If enabled AND file is about to move)
+5. Move file
+6. Update Metadata (if needed)
+7. Generate RAG & Log
 """
 
 import shutil
 import json
+import os
+import stat
 from pathlib import Path
-from config.settings import CONFIDENCE_THRESHOLD
+from datetime import datetime
+from config.settings import CONFIDENCE_THRESHOLD, DATA_DIR, BASE_DIR, get_confidence_threshold, load_user_settings
 from utils.logger import setup_logger
-from utils.move_logger import add_move
 
 logger = setup_logger(__name__)
 from .state import state
@@ -20,172 +24,193 @@ from .file_extractors import MultiModalExtractor
 from .ai_processor import AIProcessor
 from .rag_generator import RAGGenerator
 
+# History file path
+HISTORY_FILE = DATA_DIR / "file_history.json"
+
+def add_to_history(movement_data):
+    try:
+        if HISTORY_FILE.exists():
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+        else:
+            history = []
+        history.append(movement_data)
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=2, ensure_ascii=False)
+        logger.info(f"Added movement to history: {movement_data['filename']}")
+    except Exception as e:
+        logger.error(f"Error adding to history: {e}")
+
+def is_hidden(path_obj):
+    """Check if file is hidden (Dot file or Windows attribute)"""
+    # Dot file check (Mac/Linux)
+    if path_obj.name.startswith('.'):
+        return True
+    
+    # Windows attribute check
+    if os.name == 'nt':
+        try:
+            attrs = path_obj.stat().st_file_attributes
+            if attrs & stat.FILE_ATTRIBUTE_HIDDEN:
+                return True
+        except:
+            pass
+    return False
 
 def process_file(file_path: str, folder_id: int):
-    """
-    RAG-first file processing pipeline:
-    1. Extract content (text, images, audio)
-    2. Analyze with AI
-    3. Create RAG document FIRST (regardless of confidence)
-    4. Read RAG and classify into category
-    5. Move to destination (if confident)
-    """
     try:
-        # Check if file still exists before processing
-        if not Path(file_path).exists():
-            logger.warning(f"File no longer exists, skipping: {file_path}")
-            return {
-                "status": "skipped",
-                "file_name": Path(file_path).name,
-                "error": "File not found",
-            }
+        path_obj = Path(file_path)
+        
+        # 0. Basic Existence Check
+        if not path_obj.exists():
+            return {"status": "skipped", "file_name": path_obj.name, "error": "File not found"}
 
-        logger.info(
-            f"Processing file: {Path(file_path).name}", extra={"file_path": file_path}
-        )
+        # Load Settings
+        user_settings = load_user_settings() or {}
+        fallback_behavior = user_settings.get('fallbackBehavior', 'Skip file')
+        max_size_mb = user_settings.get('maxFileSize', 500)
+        skip_hidden = user_settings.get('skipHiddenFiles', True)
+        create_backups = user_settings.get('createBackups', False)
+        preserve_metadata = user_settings.get('preserveMetadata', True)
 
-        # Step 1: Extract all content
-        logger.debug("Extracting content...")
+        logger.info(f"Processing: {path_obj.name} | Backups: {create_backups}")
+
+        # 1. Skip Hidden Files
+        if skip_hidden and is_hidden(path_obj):
+            logger.info(f"Skipping hidden file: {path_obj.name}")
+            return {"status": "skipped", "file_name": path_obj.name, "error": "Hidden file"}
+
+        # 2. Check File Size
+        file_size_mb = path_obj.stat().st_size / (1024 * 1024)
+        if file_size_mb > max_size_mb:
+            logger.warning(f"Skipping file {path_obj.name}: Size {file_size_mb:.2f}MB exceeds limit")
+            return {"status": "skipped", "file_name": path_obj.name, "error": "File size limit exceeded"}
+        
+        if folder_id: state.update_folder_activity(folder_id)
+
+        # 3. Extract & Analyze
         extracted_data = MultiModalExtractor.extract(file_path)
-
-        # Step 2: Analyze with AI
-        logger.debug("Analyzing with AI...")
         ai_analysis = AIProcessor.analyze_content(extracted_data)
-
-        # Step 3: Create RAG document FIRST (at original location)
-        logger.debug("Creating RAG document...")
-        rag_path = RAGGenerator.create_rag_document(
-            file_path,
-            extracted_data,
-            ai_analysis,
-            "Uncategorized",  # Temporary, will update after classification
+        classification = AIProcessor.classify_into_categories(
+            ai_analysis, state.categories, filename=path_obj.name
         )
-
-        if not rag_path:
-            logger.warning("RAG creation failed, continuing with classification...")
-
-        # Step 4: Read the RAG file we just created and use it for classification
-        logger.debug("Reading RAG for classification...")
-
-        # Load the RAG document
-        if rag_path and Path(rag_path).exists():
-            with open(rag_path, "r", encoding="utf-8") as f:
-                rag_data = json.load(f)
-
-            # Use RAG data for classification (it has the full analysis)
-            classification = AIProcessor.classify_into_categories(
-                rag_data["analysis"], state.categories, filename=Path(file_path).name
-            )
-        else:
-            # Fallback: use the analysis directly if RAG failed
-            classification = AIProcessor.classify_into_categories(
-                ai_analysis, state.categories
-            )
 
         category_name = classification["category"]
-        confidence = classification["confidence"]
+        confidence = float(classification["confidence"])
+        if confidence > 1.0: confidence /= 100.0
 
-        # Track the final file path
-        final_file_path = file_path
-        final_rag_path = rag_path
+        # Determine threshold
+        raw_ft = (extracted_data.get("file_type") or "").lower()
+        if raw_ft in ("image", "images", "img", "picture", "photo"): key = "images"
+        elif raw_ft in ("video", "movies", "mp4", "mov"): key = "video"
+        elif raw_ft in ("audio", "sound", "mp3", "wav"): key = "audio"
+        else: key = "text"
 
-        # Step 5: Move file if confidence is high enough
-        if category_name and confidence >= CONFIDENCE_THRESHOLD:
-            category = next(
-                (c for c in state.categories if c["name"] == category_name), None
+        try:
+            threshold = float(get_confidence_threshold(key))
+        except:
+            threshold = float(CONFIDENCE_THRESHOLD or 0.3)
+
+        # Determine Destination
+        original_path = str(path_obj.absolute())
+        dest_folder = None
+        final_category = "Uncategorized"
+        
+        if category_name and confidence >= threshold:
+            category = next((c for c in state.categories if c["name"] == category_name), None)
+            if category:
+                dest_folder = Path(category["path"])
+                final_category = category_name
+        
+        elif fallback_behavior == 'Move to review folder':
+            dest_folder = BASE_DIR / "Review"
+            final_category = "Review"
+
+        # 4. Execute Move (With Backup Logic)
+        if dest_folder:
+            dest_folder.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_folder / path_obj.name
+            
+            # --- BACKUP LOGIC STARTS HERE ---
+            if create_backups:
+                try:
+                    # Create daily backup folder: Backend/data/backups/2023-10-27/
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    backup_dir = DATA_DIR / "backups" / date_str
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    backup_path = backup_dir / path_obj.name
+                    
+                    # Avoid overwriting existing backups for the same filename (append timestamp)
+                    if backup_path.exists():
+                        ts = int(datetime.now().timestamp())
+                        backup_path = backup_dir / f"{path_obj.stem}_{ts}{path_obj.suffix}"
+
+                    shutil.copy2(file_path, backup_path)
+                    logger.info(f"✅ Backup saved to: {backup_path}")
+                except Exception as e:
+                    logger.error(f"❌ Backup failed: {e}")
+            # --- BACKUP LOGIC ENDS HERE ---
+
+            # Handle Collision (Overwrite)
+            if dest_path.exists() and dest_path != path_obj:
+                try: os.remove(dest_path)
+                except: pass
+
+            shutil.move(file_path, dest_path)
+            
+            # Metadata Handling (Preserve Metadata toggle)
+            if not preserve_metadata:
+                try:
+                    # 'touch' the file to update mtime to now
+                    os.utime(dest_path, None)
+                    logger.debug("Metadata reset (Preserve Metadata = False)")
+                except: pass
+            
+            # Generate RAG
+            RAGGenerator.create_rag_document(
+                str(dest_path), extracted_data, ai_analysis, final_category
             )
 
-            if category:
-                # Move file to destination folder
-                dest_folder = Path(category["path"])
-                dest_folder.mkdir(parents=True, exist_ok=True)
-                dest_path = dest_folder / Path(file_path).name
+            # Log History
+            add_to_history({
+                "id": int(datetime.now().timestamp() * 1000),
+                "filename": dest_path.name,
+                "fromPath": original_path,
+                "toPath": str(dest_path),
+                "category": final_category,
+                "confidence": f"{confidence:.0%}",
+                "detection": f"AI Classification: {final_category}",
+                "timestamp": datetime.now().timestamp(),
+                "status": "completed"
+            })
+            
+            state.processing_stats["total"] += 1
+            state.processing_stats["success"] += 1
+            
+            return {
+                "status": "success",
+                "file_name": dest_path.name,
+                "category": final_category,
+                "confidence": confidence,
+                "destination": str(dest_path)
+            }
 
-                # Handle duplicates
-                counter = 1
-                while dest_path.exists():
-                    dest_path = (
-                        dest_folder
-                        / f"{Path(file_path).stem}_{counter}{Path(file_path).suffix}"
-                    )
-                    counter += 1
-
-                # Move the file
-                shutil.move(file_path, dest_path)
-                final_file_path = str(dest_path)
-
-                logger.info(f"Successfully moved to: {dest_path}")
-                logger.info(f"Confidence: {confidence:.2%}")
-
-                # Update the RAG document with new file path and correct category
-                if rag_path and Path(rag_path).exists():
-                    with open(rag_path, "r", encoding="utf-8") as f:
-                        rag_doc = json.load(f)
-
-                    # Update file info
-                    rag_doc["file_info"]["original_path"] = final_file_path
-                    rag_doc["file_info"]["category"] = category_name
-
-                    # Save updated RAG
-                    with open(rag_path, "w", encoding="utf-8") as f:
-                        json.dump(rag_doc, f, indent=2, ensure_ascii=False)
-
-                    logger.debug(f"Updated RAG with new path and category")
-
-                # Update stats
-                state.processing_stats["total"] += 1
-                state.processing_stats["success"] += 1
-                file_type = extracted_data.get("file_type", "other")
-                state.processing_stats["by_type"][file_type] = (
-                    state.processing_stats["by_type"].get(file_type, 0) + 1
-                )
-
-                return {
-                    "status": "success",
-                    "file_name": Path(final_file_path).name,
-                    "category": category_name,
-                    "confidence": confidence,
-                    "summary": ai_analysis.get("summary", ""),
-                    "keywords": ai_analysis.get("keywords", []),
-                    "rag_path": rag_path,
-                    "original_path": file_path,
-                    "destination": final_file_path 
-                }
-
-        # Low confidence - file stays in original location, but RAG is already created
-        logger.warning(f"Low confidence: {confidence:.2%}")
-        logger.info(f"File remains at: {file_path}")
-
+        # Skip File
         state.processing_stats["total"] += 1
+        
+        # Create RAG in place
+        RAGGenerator.create_rag_document(
+            file_path, extracted_data, ai_analysis, "Uncategorized"
+        )
 
         return {
             "status": "low_confidence",
-            "file_name": Path(file_path).name,
+            "file_name": path_obj.name,
             "confidence": confidence,
-            "summary": ai_analysis.get("summary", ""),
-            "suggestions": ai_analysis.get("category_suggestions", []),
-            "rag_path": rag_path,
-            "original_path": file_path,
-            "destination": file_path 
-        }
-
-    except FileNotFoundError as e:
-        logger.warning(f"File not found (may have been moved/deleted): {e}")
-        state.processing_stats["total"] += 1
-
-        return {
-            "status": "skipped",
-            "file_name": Path(file_path).name,
-            "error": "File not found - may have already been processed",
+            "destination": file_path
         }
 
     except Exception as e:
         logger.error(f"Processing error: {e}", exc_info=True)
-        import traceback
-
-        traceback.print_exc()
-
-        state.processing_stats["total"] += 1
-        state.processing_stats["failed"] += 1
-
         return {"status": "error", "file_name": Path(file_path).name, "error": str(e)}

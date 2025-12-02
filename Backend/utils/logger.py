@@ -33,14 +33,14 @@ class ColoredFormatter(logging.Formatter):
 def setup_logger(name: str, log_file: str = None, level: str = None):
     """
     Setup a comprehensive logger with multiple handlers
-    
-    Args:
-        name: Logger name (usually __name__)
-        log_file: Optional specific log file
-        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level or LOG_LEVEL)
+    
+    # Set default level if not already set
+    if level:
+        logger.setLevel(level)
+    elif not logger.level:
+        logger.setLevel(LOG_LEVEL)
     
     # Prevent duplicate handlers
     if logger.handlers:
@@ -51,7 +51,7 @@ def setup_logger(name: str, log_file: str = None, level: str = None):
     
     # 1. Console Handler (with colors)
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG) # Allow all, let logger level control
     console_handler.setFormatter(color_formatter)
     logger.addHandler(console_handler)
     
@@ -66,7 +66,7 @@ def setup_logger(name: str, log_file: str = None, level: str = None):
         maxBytes=MAX_LOG_SIZE,
         backupCount=BACKUP_COUNT
     )
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.DEBUG) # Allow all, let logger level control
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     
@@ -81,6 +81,33 @@ def setup_logger(name: str, log_file: str = None, level: str = None):
     logger.addHandler(error_handler)
     
     return logger
+
+
+def update_log_level(level_name: str):
+    """
+    Dynamically update the log level for the root logger and all attached handlers.
+    Maps UI labels (Verbose, Info) to Python logging constants.
+    """
+    level_map = {
+        'Error': logging.ERROR,
+        'Warning': logging.WARNING,
+        'Info': logging.INFO,
+        'Debug': logging.DEBUG,
+        'Verbose': logging.DEBUG  # Python doesn't have Verbose, map to DEBUG
+    }
+    
+    # Default to INFO if unknown
+    new_level = level_map.get(level_name, logging.INFO)
+    
+    # Update root logger (affects all child loggers)
+    logging.getLogger().setLevel(new_level)
+    
+    # Specifically update file_organizer loggers if they were instantiated separately
+    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    for logger in loggers:
+        logger.setLevel(new_level)
+        
+    print(f"📝 Log level updated to: {logging.getLevelName(new_level)}")
 
 
 def log_performance(func):

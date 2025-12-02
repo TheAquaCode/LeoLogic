@@ -1,10 +1,12 @@
 """
 RAG (Retrieval Augmented Generation) System
-Stores processed files in searchable format for chatbot
+Stores processed files in searchable format for chatbot.
+Smart updates: Updates existing records instead of creating duplicates.
 """
 
 import json
 import hashlib
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
@@ -15,73 +17,90 @@ class RAGGenerator:
     """Generate and store RAG data for files"""
 
     @staticmethod
-    def get_rag_cache_path(file_path: str) -> Path:
+    def _generate_hash(file_path: Path) -> str:
         """
-        Get the RAG cache file path for a given file.
-        Uses content-based hashing so cache works even after file moves.
+        Generate a hash based on filename, size, and modification time.
+        Strictly content-based. Path is irrelevant to the hash.
         """
         try:
-            # Check if file exists
-            if not Path(file_path).exists():
-                # If file doesn't exist, use path-only hash
-                # This handles cases where we're looking for cache after file moved
-                cache_hash = hashlib.md5(str(file_path).encode()).hexdigest()
-                return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
-
-            # Create unique filename based on file path + modification time
-            file_stat = Path(file_path).stat()
-            cache_key = f"{file_path}_{file_stat.st_mtime}_{file_stat.st_size}"
-            cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
-
-            return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
-        except Exception as e:
-            # Fallback: use just the filename
-            print(f"  ⚠️  Error getting cache path: {e}")
-            cache_hash = hashlib.md5(str(file_path).encode()).hexdigest()
-            return RAG_DIR / f"{Path(file_path).stem}_{cache_hash}.rag.json"
+            stats = file_path.stat()
+            # Key = Filename + Size + ModifiedTime
+            key = f"{file_path.name}_{stats.st_size}_{stats.st_mtime}"
+            return hashlib.md5(key.encode()).hexdigest()
+        except Exception:
+            # Fallback
+            return hashlib.md5(file_path.name.encode()).hexdigest()
 
     @staticmethod
-    def check_rag_cache(file_path: str) -> Dict:
-        """Check if RAG data already exists for this file"""
-        from config.settings import ENABLE_RAG_CACHING
-
-        if not ENABLE_RAG_CACHING:
-            return None
-
-        try:
-            cache_path = RAGGenerator.get_rag_cache_path(file_path)
-
-            if cache_path.exists():
-                try:
-                    with open(cache_path, "r", encoding="utf-8") as f:
-                        cached_data = json.load(f)
-                    print(f"  ♻️  Using cached RAG data")
-                    return cached_data
-                except Exception as e:
-                    print(f"  ⚠️  Cache read error: {e}")
-                    return None
-        except Exception as e:
-            print(f"  ⚠️  Error checking cache: {e}")
-            return None
-
-        return None
+    def get_rag_filename(file_path: Path) -> Path:
+        """Calculate the expected RAG filename for a specific file state."""
+        cache_hash = RAGGenerator._generate_hash(file_path)
+        return RAG_DIR / f"{file_path.stem}_{cache_hash}.rag.json"
 
     @staticmethod
     def create_rag_document(
         file_path: str, extracted_data: Dict, ai_analysis: Dict, category: str
     ) -> str:
         """
-        Create a RAG document with all file information.
-        Returns: Path to RAG JSON file
+        Create OR Update a RAG document.
+        If an identical RAG file exists, just update the path inside it.
         """
         try:
-            # Check if file exists before creating RAG
-            if not Path(file_path).exists():
-                print(f"  ⚠️  File not found, cannot create RAG: {file_path}")
+            path_obj = Path(file_path)
+            if not path_obj.exists():
                 return None
 
-            rag_path = RAGGenerator.get_rag_cache_path(file_path)
+            # Ensure RAG directory exists
+            RAG_DIR.mkdir(parents=True, exist_ok=True)
 
+            # 1. Calculate the hash for the CURRENT file state
+            current_hash = RAGGenerator._generate_hash(path_obj)
+            target_rag_filename = f"{path_obj.stem}_{current_hash}.rag.json"
+            target_rag_path = RAG_DIR / target_rag_filename
+
+            # 2. Check for ANY existing RAG files for this filename stem
+            # This handles the cleanup of old versions or duplicates
+            existing_rags = list(RAG_DIR.glob(f"{path_obj.stem}_*.rag.json"))
+            
+            rag_already_exists = False
+
+            for existing_rag in existing_rags:
+                # If the filename matches exactly, we have the exact same file content/version
+                if existing_rag.name == target_rag_filename:
+                    rag_already_exists = True
+                    # Just update the path inside the JSON (in case file moved)
+                    try:
+                        with open(existing_rag, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        
+                        # Only write if path actually changed
+                        if data.get('file_info', {}).get('original_path') != str(file_path):
+                            data['file_info']['original_path'] = str(file_path)
+                            data['file_info']['category'] = category
+                            with open(existing_rag, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, indent=2, ensure_ascii=False)
+                            print(f"  ♻️ Updated path in existing RAG: {existing_rag.name}")
+                        else:
+                            print(f"  ✅ RAG up to date: {existing_rag.name}")
+                            
+                    except Exception as e:
+                        print(f"  ⚠️ Error updating existing RAG: {e}")
+                        # If corrupt, treat as not existing
+                        rag_already_exists = False
+                else:
+                    # This is an old version (hash mismatch) or a duplicate. Delete it.
+                    try:
+                        os.remove(existing_rag)
+                        print(f"  🧹 Pruned stale RAG: {existing_rag.name}")
+                    except Exception:
+                        pass
+
+            # 3. If we found the exact match, we are done. Return.
+            if rag_already_exists:
+                return str(target_rag_path)
+
+            # 4. If we are here, it's a new file or new version. Create fresh RAG.
+            
             # Chunk the text content
             full_text = extracted_data.get("text", "")
             if extracted_data.get("audio_transcript"):
@@ -91,17 +110,16 @@ class RAGGenerator:
 
             chunks = RAGGenerator._chunk_text(full_text)
 
-            # Create RAG document
             rag_doc = {
                 "file_info": {
                     "original_path": file_path,
-                    "filename": Path(file_path).name,
+                    "filename": path_obj.name,
                     "category": category,
                     "file_type": extracted_data.get("file_type", "unknown"),
                     "created_at": datetime.now().isoformat(),
                 },
                 "content": {
-                    "full_text": full_text[:10000],  # Store first 10k chars
+                    "full_text": full_text[:10000],
                     "chunks": chunks,
                     "audio_transcript": extracted_data.get("audio_transcript", ""),
                     "images": extracted_data.get("images", []),
@@ -115,61 +133,17 @@ class RAGGenerator:
                 "metadata": extracted_data.get("metadata", {}),
             }
 
-            # Ensure RAG directory exists
-            RAG_DIR.mkdir(parents=True, exist_ok=True)
-
-            # Save RAG document
-            with open(rag_path, "w", encoding="utf-8") as f:
+            with open(target_rag_path, "w", encoding="utf-8") as f:
                 json.dump(rag_doc, f, indent=2, ensure_ascii=False)
 
-            print(f"💾 RAG document created: {rag_path}")
-            return str(rag_path)
+            print(f"💾 Created NEW RAG document: {target_rag_path.name}")
+            return str(target_rag_path)
 
         except Exception as e:
             print(f"  ⚠️  Error creating RAG document: {e}")
             import traceback
-
             traceback.print_exc()
             return None
-
-    @staticmethod
-    def update_rag_file_path(old_path: str, new_path: str) -> bool:
-        """
-        Update RAG document when a file is moved.
-        Finds the RAG document by old path and updates it with new path.
-        """
-        try:
-            # Try to find RAG file using old path
-            old_rag_path = RAGGenerator.get_rag_cache_path(old_path)
-
-            if old_rag_path.exists():
-                # Read existing RAG data
-                with open(old_rag_path, "r", encoding="utf-8") as f:
-                    rag_doc = json.load(f)
-
-                # Update file path
-                rag_doc["file_info"]["original_path"] = new_path
-                rag_doc["file_info"]["filename"] = Path(new_path).name
-
-                # Get new RAG path
-                new_rag_path = RAGGenerator.get_rag_cache_path(new_path)
-
-                # Save to new location
-                with open(new_rag_path, "w", encoding="utf-8") as f:
-                    json.dump(rag_doc, f, indent=2, ensure_ascii=False)
-
-                # Delete old RAG file if different
-                if old_rag_path != new_rag_path:
-                    old_rag_path.unlink()
-
-                print(f"  ✅ Updated RAG path: {old_path} -> {new_path}")
-                return True
-
-            return False
-
-        except Exception as e:
-            print(f"  ⚠️  Error updating RAG path: {e}")
-            return False
 
     @staticmethod
     def _chunk_text(text: str) -> List[str]:
@@ -192,58 +166,45 @@ class RAGGenerator:
     def search_rag(query: str, max_results: int = 5) -> List[Dict]:
         """
         Search through all RAG documents for relevant information.
-        Returns list of relevant documents with scores.
         """
         results = []
         query_lower = query.lower()
         query_words = set(query_lower.split())
 
-        # Search through all RAG files
         for rag_file in RAG_DIR.glob("*.rag.json"):
             try:
                 with open(rag_file, "r", encoding="utf-8") as f:
                     rag_doc = json.load(f)
 
-                # Calculate relevance score
                 score = 0
+                
+                # Simple keyword scoring
+                filename = rag_doc.get("file_info", {}).get("filename", "").lower()
+                if query_lower in filename: score += 10
 
-                # Check summary
                 summary = rag_doc.get("analysis", {}).get("summary", "").lower()
                 score += sum(word in summary for word in query_words) * 3
 
-                # Check keywords
-                keywords = [
-                    k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])
-                ]
+                keywords = [k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])]
                 score += sum(word in keywords for word in query_words) * 5
 
-                # Check chunks
+                # Search content chunks
                 for chunk in rag_doc.get("content", {}).get("chunks", []):
-                    chunk_lower = chunk.lower()
-                    score += sum(word in chunk_lower for word in query_words)
-
-                # Check audio transcript
-                transcript = (
-                    rag_doc.get("content", {}).get("audio_transcript", "").lower()
-                )
-                score += sum(word in transcript for word in query_words) * 2
+                    if any(word in chunk.lower() for word in query_words):
+                        score += 1
 
                 if score > 0:
-                    results.append(
-                        {
-                            "file": rag_doc["file_info"]["filename"],
-                            "path": rag_doc["file_info"]["original_path"],
-                            "summary": rag_doc["analysis"]["summary"],
-                            "keywords": rag_doc["analysis"]["keywords"],
-                            "score": score,
-                            "content_preview": rag_doc["content"]["full_text"][:500],
-                        }
-                    )
+                    results.append({
+                        "file": rag_doc["file_info"]["filename"],
+                        "path": rag_doc["file_info"]["original_path"],
+                        "summary": rag_doc["analysis"]["summary"],
+                        "keywords": rag_doc["analysis"]["keywords"],
+                        "score": score,
+                        "content_preview": rag_doc["content"]["full_text"][:500],
+                    })
 
-            except Exception as e:
-                print(f"⚠️ Error reading RAG file {rag_file}: {e}")
+            except Exception:
                 continue
 
-        # Sort by score and return top results
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:max_results]

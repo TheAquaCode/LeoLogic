@@ -52,10 +52,31 @@ const FileExplorer = ({ isChatMaximized }) => {
     saveToStorage('QUICK_SORT_EXPANDED', isQuickSortExpanded);
   }, [isQuickSortExpanded]);
 
-  // Check backend status and load data
+  // Persist categories to localStorage whenever they change
+  useEffect(() => {
+    try {
+      saveToStorage('categories', Array.isArray(categories) ? categories : []);
+    } catch (e) {
+      console.error('Error saving categories to storage:', e);
+    }
+  }, [categories]);
+
+  // Check backend status and load data (Manual trigger)
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
+
+  // Automatic Polling for Updates (e.g. from Chatbot)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Don't poll if we are in the middle of a heavy operation to avoid jitter
+      if (!isProcessingAll && !processingFolder) {
+        loadData();
+      }
+    }, 4000); // Check every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [isProcessingAll, processingFolder]);
 
   // Resume polling if a processing job was active when component mounted
   useEffect(() => {
@@ -91,8 +112,6 @@ const FileExplorer = ({ isChatMaximized }) => {
   };
 
   const loadData = async () => {
-    console.log('Loading data, trigger:', refreshTrigger);
-    
     try {
       const isOnline = await checkBackendStatus();
       if (isOnline) {
@@ -106,15 +125,18 @@ const FileExplorer = ({ isChatMaximized }) => {
           const foldersData = foldersResult.value;
           setWatchedFolders(prev => {
             const newFolders = Array.isArray(foldersData) ? foldersData : [];
+            
+            // Only update if data actually changed to prevent re-renders?
+            // For now, mapping ensures local status is preserved if backend doesn't track it fully yet,
+            // though backend is authoritative for ID and Path.
             const updatedFolders = newFolders.map(newFolder => {
               const localFolder = prev.find(f => f.id === newFolder.id);
               const fileCount = Number(newFolder.fileCount ?? 0);
               
-              console.log(`Processing folder ${newFolder.name}, count:`, fileCount);
-              
               return {
                 ...newFolder,
-                status: localFolder?.status || 'Active',
+                // If backend sent a status, use it, otherwise fall back to local or Active
+                status: newFolder.status || localFolder?.status || 'Active',
                 fileCount: isNaN(fileCount) ? 0 : fileCount
               };
             });
@@ -124,13 +146,21 @@ const FileExplorer = ({ isChatMaximized }) => {
         }
           
         if (categoriesResult.status === 'fulfilled') {
-          const categoriesData = categoriesResult.value;
-          setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+          const categoriesData = Array.isArray(categoriesResult.value) ? categoriesResult.value : [];
+          setCategories(categoriesData);
+          // save fetched categories so they are available instantly next load
+          try {
+            saveToStorage('categories', categoriesData);
+          } catch (e) {
+            console.error('Error saving fetched categories to storage:', e);
+          }
         }
       }
     } catch (error) {
-      console.error('Error loading data:', error);
-      setError(error.message);
+      // Silent error on polling to avoid spam
+      if (!isProcessingAll) {
+        console.error('Error loading data:', error);
+      }
     }
   };
 
@@ -414,8 +444,9 @@ const FileExplorer = ({ isChatMaximized }) => {
           setProcessingProgress(updated);
           try { localStorage.setItem('processing_progress', JSON.stringify(updated)); } catch {}
 
-          // If completed
-          if (updated[folderId].total > 0 && updated[folderId].completed >= updated[folderId].total) {
+          // If completed (success + failed >= total)
+          const totalProcessed = (updated[folderId].completed || 0) + (updated[folderId].failed || 0);
+          if (updated[folderId].total > 0 && totalProcessed >= updated[folderId].total) {
             // stop polling, clear stored processing folder after a short delay
             clearInterval(progressPollRef.current);
             progressPollRef.current = null;
@@ -447,7 +478,8 @@ const FileExplorer = ({ isChatMaximized }) => {
     try {
       if (backendStatus === 'online') {
         const result = await apiService.addCategory(categoryData);
-        setCategories([...categories, result.category]);
+        setCategories(prev => [...prev, result.category]);
+        // localStorage will be updated by the categories useEffect above
       } else {
         // Local fallback
         const newCategory = {
@@ -458,8 +490,9 @@ const FileExplorer = ({ isChatMaximized }) => {
           rules: 0,
           color: 'bg-blue-500'
         };
-        setCategories([...categories, newCategory]);
-        saveToStorage('categories', [...categories, newCategory]);
+        const updated = [...categories, newCategory];
+        setCategories(updated);
+        saveToStorage('categories', updated);
       }
     } catch (error) {
       console.error('Error adding category:', error);
@@ -633,11 +666,7 @@ const FileExplorer = ({ isChatMaximized }) => {
             </p>
           )}
           
-          {backendStatus !== 'online' && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
-              Backend must be online to process files.
-            </p>
-          )}
+          
         </div>
       </div>
 

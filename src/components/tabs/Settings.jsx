@@ -1,5 +1,7 @@
+// src/components/tabs/Settings.jsx
 import React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
+import apiService from '../../services/api';
 
 // --- Inline Components ---
 const SettingsCard = ({ title, children, icon: Icon }) => (
@@ -117,36 +119,91 @@ const Switch = ({ label, value, onChange, description }) => (
 
 // --- Main Settings Page ---
 const SettingsPage = ({ isChatMaximized = false }) => {
-  const loadSettings = () => {
-    return window.appSettings || {
-      baseTheme: 'light',
-      accentColor: 'blue',
-      confidenceThresholds: { text: 85, images: 80, audio: 75, video: 70 },
-      fallbackBehavior: 'Move to review folder',
-      preloadModels: true,
-      modelToggles: { textClassification: true, imageRecognition: true, audioProcessing: false, videoAnalysis: false },
-      scanFrequency: 'Hourly',
-      runOnStartup: false,
-      desktopNotifications: true,
-      minimizeToTray: true,
-      maxFileSize: 500,
-      skipHiddenFiles: true,
-      preserveMetadata: true,
-      createBackups: false,
-      logLevel: 'Info',
-    };
+  const defaultSettings = {
+    baseTheme: 'light',
+    accentColor: 'blue',
+    confidenceThresholds: { text: 85, images: 80, audio: 75, video: 70 },
+    fallbackBehavior: 'Skip file',
+    preloadModels: true,
+    modelToggles: { textClassification: true, imageRecognition: true, audioProcessing: true, videoAnalysis: true },
+    scanFrequency: 'Hourly',
+    runOnStartup: false,
+    desktopNotifications: true,
+    minimizeToTray: true,
+    maxFileSize: 500,
+    skipHiddenFiles: true,
+    preserveMetadata: true,
+    createBackups: false,
+    logLevel: 'Info',
   };
 
-  const [settings, setSettings] = useState(loadSettings());
+  const [settings, setSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('app_settings');
+      return cached ? { ...defaultSettings, ...JSON.parse(cached) } : defaultSettings;
+    } catch {
+      return defaultSettings;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState('general');
+  const [saveStatus, setSaveStatus] = useState(null);
 
   useEffect(() => {
-    applyTheme(settings.baseTheme, settings.accentColor);
+    loadSettings();
   }, []);
 
   useEffect(() => {
-    window.appSettings = settings;
+    applyTheme(settings.baseTheme, settings.accentColor);
+  }, [settings.baseTheme, settings.accentColor]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveSettings(true);
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [settings]);
+
+  const loadSettings = async () => {
+    try {
+      const data = await apiService.getSettings();
+      setSettings(prev => ({ ...prev, ...data }));
+      localStorage.setItem('app_settings', JSON.stringify({ ...settings, ...data }));
+      applyTheme(data.baseTheme, data.accentColor);
+    } catch (error) {
+      console.error('Error syncing settings:', error);
+    }
+  };
+
+  const saveSettings = async (silent = false) => {
+    if (!silent) setSaveStatus('saving');
+    localStorage.setItem('app_settings', JSON.stringify(settings));
+    try {
+      await apiService.updateSettings(settings);
+      if (!silent) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      if (!silent) {
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus(null), 3000);
+      }
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (window.confirm('Clear all cached data (RAG files, temp uploads, scanner cache)? \nYour files and settings will be preserved.')) {
+      try {
+        await apiService.clearCache();
+        sessionStorage.clear();
+        alert('Cache cleared successfully!');
+      } catch (error) {
+        alert('Failed to clear cache: ' + error.message);
+      }
+    }
+  };
 
   const baseThemes = [
     { value: 'light', label: 'Light' },
@@ -163,11 +220,17 @@ const SettingsPage = ({ isChatMaximized = false }) => {
   ];
 
   const updateConfidenceThreshold = (type, value) => {
-    setSettings((prev) => ({ ...prev, confidenceThresholds: { ...prev.confidenceThresholds, [type]: value } }));
+    setSettings((prev) => ({ 
+      ...prev, 
+      confidenceThresholds: { ...prev.confidenceThresholds, [type]: value } 
+    }));
   };
 
   const updateModelToggle = (model, value) => {
-    setSettings((prev) => ({ ...prev, modelToggles: { ...prev.modelToggles, [model]: value } }));
+    setSettings((prev) => ({ 
+      ...prev, 
+      modelToggles: { ...prev.modelToggles, [model]: value } 
+    }));
   };
 
   const updateSetting = (key, value) => {
@@ -214,9 +277,8 @@ const SettingsPage = ({ isChatMaximized = false }) => {
   };
 
   const fallbackOptions = [
-    { value: 'Move to review folder', label: 'Move to review folder' },
     { value: 'Skip file', label: 'Skip file' },
-    { value: 'Move to misc', label: 'Move to misc folder' },
+    { value: 'Move to review folder', label: 'Move to review folder' },
   ];
 
   const scanFrequencyOptions = [
@@ -235,7 +297,6 @@ const SettingsPage = ({ isChatMaximized = false }) => {
     { value: 'Verbose', label: 'Verbose' },
   ];
 
-  // --- Layout with dynamic resizing ---
   return (
     <div
       className={`flex-1 flex flex-col overflow-hidden transition-all duration-300`}
@@ -244,6 +305,21 @@ const SettingsPage = ({ isChatMaximized = false }) => {
         transition: 'margin-right 0.3s ease',
       }}
     >
+      {/* Save Status Indicator */}
+      {saveStatus && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className={`px-4 py-2 rounded-lg shadow-lg ${
+            saveStatus === 'saved' ? 'bg-green-500' :
+            saveStatus === 'saving' ? 'bg-blue-500' :
+            'bg-red-500'
+          } text-white text-sm`}>
+            {saveStatus === 'saved' && '✓ Settings saved'}
+            {saveStatus === 'saving' && 'Saving...'}
+            {saveStatus === 'error' && '✗ Error saving settings'}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div
         className="border-b px-6 flex space-x-8"
@@ -274,10 +350,9 @@ const SettingsPage = ({ isChatMaximized = false }) => {
         </button>
       </div>
 
-      {/* Content with proper max-width wrapper */}
+      {/* Content */}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-6xl mx-auto w-full">
-          {/* General Tab */}
           {activeTab === 'general' ? (
             <div className="grid gap-4 grid-cols-1">
               {/* Appearance */}
@@ -285,19 +360,13 @@ const SettingsPage = ({ isChatMaximized = false }) => {
                 <Dropdown
                   label="Theme"
                   value={settings.baseTheme}
-                  onChange={(value) => {
-                    updateSetting('baseTheme', value);
-                    applyTheme(value, settings.accentColor);
-                  }}
+                  onChange={(value) => updateSetting('baseTheme', value)}
                   options={baseThemes}
                 />
                 <Dropdown
                   label="Accent Color"
                   value={settings.accentColor}
-                  onChange={(value) => {
-                    updateSetting('accentColor', value);
-                    applyTheme(settings.baseTheme, value);
-                  }}
+                  onChange={(value) => updateSetting('accentColor', value)}
                   options={accentColors}
                 />
               </SettingsCard>
@@ -323,9 +392,12 @@ const SettingsPage = ({ isChatMaximized = false }) => {
 
               {/* Confidence Thresholds */}
               <SettingsCard title="Confidence Thresholds" icon={Settings}>
+                <p className="text-xs mb-3" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  Files must meet these confidence levels to be automatically organized. Lower thresholds = more files organized, but potentially less accurate.
+                </p>
                 <div className={`grid gap-4 ${isChatMaximized ? 'grid-cols-2' : 'grid-cols-4'}`}>
                   <Slider
-                    label="Text"
+                    label="Text Documents"
                     value={settings.confidenceThresholds.text}
                     onChange={(value) => updateConfidenceThreshold('text', value)}
                   />
@@ -335,12 +407,12 @@ const SettingsPage = ({ isChatMaximized = false }) => {
                     onChange={(value) => updateConfidenceThreshold('images', value)}
                   />
                   <Slider
-                    label="Audio"
+                    label="Audio Files"
                     value={settings.confidenceThresholds.audio}
                     onChange={(value) => updateConfidenceThreshold('audio', value)}
                   />
                   <Slider
-                    label="Video"
+                    label="Video Files"
                     value={settings.confidenceThresholds.video}
                     onChange={(value) => updateConfidenceThreshold('video', value)}
                   />
@@ -358,31 +430,33 @@ const SettingsPage = ({ isChatMaximized = false }) => {
               </SettingsCard>
 
               <SettingsCard title="AI Models" icon={Brain}>
-                <Switch
-                  label="Pre-load models"
-                  value={settings.preloadModels}
-                  onChange={(value) => updateSetting('preloadModels', value)}
-                />
-                <div className="pt-2 mt-2 space-y-1" style={{ borderTop: '1px solid var(--theme-border-secondary)' }}>
+                <p className="text-xs mb-2" style={{ color: 'var(--theme-text-tertiary)' }}>
+                  Enable/disable AI processing for different file types
+                </p>
+                <div className="pt-2 space-y-1">
                   <Switch
-                    label="Text"
+                    label="Text Classification"
                     value={settings.modelToggles.textClassification}
                     onChange={(value) => updateModelToggle('textClassification', value)}
+                    description="PDFs, Word docs, text files"
                   />
                   <Switch
-                    label="Images"
+                    label="Image Recognition"
                     value={settings.modelToggles.imageRecognition}
                     onChange={(value) => updateModelToggle('imageRecognition', value)}
+                    description="JPG, PNG, PSD, SVG"
                   />
                   <Switch
-                    label="Audio"
+                    label="Audio Processing"
                     value={settings.modelToggles.audioProcessing}
                     onChange={(value) => updateModelToggle('audioProcessing', value)}
+                    description="MP3, WAV, M4A (via Whisper)"
                   />
                   <Switch
-                    label="Video"
+                    label="Video Analysis"
                     value={settings.modelToggles.videoAnalysis}
                     onChange={(value) => updateModelToggle('videoAnalysis', value)}
+                    description="MP4, AVI, MOV (audio extraction)"
                   />
                 </div>
               </SettingsCard>
@@ -397,7 +471,6 @@ const SettingsPage = ({ isChatMaximized = false }) => {
               </SettingsCard>
             </div>
           ) : (
-            // --- Advanced Tab ---
             <div className="grid gap-4 grid-cols-1">
               <SettingsCard title="File Processing" icon={Sliders}>
                 <div className="space-y-3">
@@ -456,10 +529,13 @@ const SettingsPage = ({ isChatMaximized = false }) => {
                       Clear Application Cache
                     </h4>
                     <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      Remove temporary files and cached data
+                      Remove RAG data, temp uploads, and scanner state
                     </p>
                   </div>
-                  <button className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap flex-shrink-0">
+                  <button 
+                    onClick={handleClearCache}
+                    className="px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap flex-shrink-0"
+                  >
                     Clear Cache
                   </button>
                 </div>

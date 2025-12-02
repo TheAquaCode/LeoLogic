@@ -1,10 +1,8 @@
 // src/services/api.js
-// API service for communicating with the backend
-
 const API_BASE_URL = 'http://localhost:5001/api';
 
 class APIService {
-  async fetchWithTimeout(url, options = {}, timeout = options.method === 'POST' ? 30000 : 3000) { // 30 seconds for POST requests
+  async fetchWithTimeout(url, options = {}, timeout = options.method === 'POST' ? 30000 : 3000) { 
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
 
@@ -16,7 +14,7 @@ class APIService {
           'Content-Type': 'application/json',
           ...options.headers,
         },
-        cache: 'no-cache', // Don't cache API responses
+        cache: 'no-cache', 
       });
       clearTimeout(id);
       return response;
@@ -52,20 +50,35 @@ class APIService {
     return this.request('/health');
   }
 
+  // Settings
+  async getSettings() {
+    return this.request('/settings');
+  }
+
+  async updateSettings(settings) {
+    return this.request('/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async clearCache() {
+    return this.request('/settings/clear-cache', {
+      method: 'POST'
+    });
+  }
+
   // Watched Folders
   async getWatchedFolders() {
     const data = await this.request('/watched-folders');
-    // Backend now returns array directly
     return Array.isArray(data) ? data : [];
   }
 
   async addWatchedFolder(folder) {
-    const data = await this.request('/watched-folders', {
+    return this.request('/watched-folders', {
       method: 'POST',
       body: JSON.stringify(folder),
     });
-    // Backend returns the folder directly
-    return data;
   }
 
   async deleteWatchedFolder(folderId) {
@@ -75,11 +88,9 @@ class APIService {
   }
 
   async toggleFolderStatus(folderId) {
-    const data = await this.request(`/watched-folders/${folderId}/toggle`, {
+    return this.request(`/watched-folders/${folderId}/toggle`, {
       method: 'POST',
     });
-    // Backend returns the folder directly
-    return data;
   }
 
   async processFolderFiles(folderId) {
@@ -88,7 +99,6 @@ class APIService {
     });
   }
 
-  // Start processing folder in background (returns accepted) and poll progress separately
   async startProcessFolder(folderId) {
     return this.request(`/process-folder/${folderId}`, {
       method: 'POST'
@@ -102,17 +112,14 @@ class APIService {
   // Categories
   async getCategories() {
     const data = await this.request('/categories');
-    // Backend now returns array directly
     return Array.isArray(data) ? data : [];
   }
 
   async addCategory(category) {
-    const data = await this.request('/categories', {
+    return this.request('/categories', {
       method: 'POST',
       body: JSON.stringify(category),
     });
-    // Backend returns the category directly
-    return data;
   }
 
   async deleteCategory(categoryId) {
@@ -122,11 +129,10 @@ class APIService {
   }
 
   async updateCategory(categoryId, updates) {
-    const data = await this.request(`/categories/${categoryId}`, {
+    return this.request(`/categories/${categoryId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
-    return data;
   }
 
   // Statistics
