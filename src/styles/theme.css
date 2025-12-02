@@ -458,13 +458,32 @@ svg:hover path {
    SEARCH BAR & DROPDOWN FIXES
    ======================================== */
 
-/* Search Input - Light Mode */
-input[type="text"],
-input[type="search"],
-input[placeholder*="Search"],
-[class*="search"] input {
-  background-color: #f3f3f5 !important;
+/* Search bar - Light Mode */
+input[placeholder*="Search files, paths, or reasons"],
+input[placeholder*="search"] {
+  background-color: #ffffff !important;
   color: #111827 !important;
+  padding: 0.85rem 2.5rem !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+input[placeholder*="Search files, paths, or reasons"]::placeholder,
+input[placeholder*="search"]::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+  padding-left: .25rem !important;
+}
+
+/* Search bar - Dark Mode */
+.dark input[placeholder*="Search files, paths, or reasons"],
+.dark input[placeholder*="search"] {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+.dark input[placeholder*="Search files, paths, or reasons"]::placeholder,
+.dark input[placeholder*="search"]::placeholder {
+  color: #a1a1aa !important;
 }
 
 input::placeholder {
@@ -533,20 +552,7 @@ option:hover {
    SPECIFIC FIXES FOR YOUR LAYOUT
    ======================================== */
 
-/* Fix the specific dark search bar you showed */
-input[placeholder*="Search files, paths, or reasons"],
-input[placeholder*="search"] {
-  background-color: #6d7077 !important;
-  color: #ffffff !important;
-  padding: 0.85rem 2.5rem !important;
-}
 
-input[placeholder*="Search files, paths, or reasons"]::placeholder,
-input[placeholder*="search"]::placeholder {
-  color: #d1d5db !important;
-  opacity: 1 !important;
-  padding-left: .25rem !important;
-}
 
 /* Fix dropdown items that appear next to search */
 select {

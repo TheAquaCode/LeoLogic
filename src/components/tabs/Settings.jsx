@@ -1,5 +1,5 @@
 // src/components/tabs/Settings.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings, AlertTriangle, Brain, Zap, RotateCcw, Palette, Bell, Sliders } from 'lucide-react';
 import apiService from '../../services/api';
 
@@ -62,7 +62,7 @@ const Dropdown = ({ label, value, onChange, options }) => (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none border rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-offset-2"
+className="w-full appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         style={{
           backgroundColor: 'var(--theme-bg-secondary)',
           borderColor: 'var(--theme-border-primary)',
@@ -146,6 +146,7 @@ const SettingsPage = ({ isChatMaximized = false }) => {
     }
   });
 
+  const settingsRef = useRef(settings);
   const [activeTab, setActiveTab] = useState('general');
   const [saveStatus, setSaveStatus] = useState(null);
 
@@ -155,7 +156,8 @@ const SettingsPage = ({ isChatMaximized = false }) => {
 
   useEffect(() => {
     applyTheme(settings.baseTheme, settings.accentColor);
-  }, [settings.baseTheme, settings.accentColor]);
+    settingsRef.current = settings;
+  }, [settings.baseTheme, settings.accentColor, settings]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -164,12 +166,27 @@ const SettingsPage = ({ isChatMaximized = false }) => {
     return () => clearTimeout(timer);
   }, [settings]);
 
+  // Handle Unmount Save (Critical for persistency)
+  useEffect(() => {
+    return () => {
+      const finalSettings = settingsRef.current;
+      // 1. Force update localStorage immediately to ensure next load is correct
+      localStorage.setItem('app_settings', JSON.stringify(finalSettings));
+      // 2. Send API request
+      apiService.updateSettings(finalSettings);
+    };
+  }, []);
+
   const loadSettings = async () => {
     try {
       const data = await apiService.getSettings();
-      setSettings(prev => ({ ...prev, ...data }));
-      localStorage.setItem('app_settings', JSON.stringify({ ...settings, ...data }));
-      applyTheme(data.baseTheme, data.accentColor);
+      setSettings(prev => {
+        const merged = { ...prev, ...data };
+        // Update storage with the merged result (using latest state ref logic inside setter)
+        localStorage.setItem('app_settings', JSON.stringify(merged));
+        applyTheme(data.baseTheme, data.accentColor);
+        return merged;
+      });
     } catch (error) {
       console.error('Error syncing settings:', error);
     }
@@ -177,7 +194,10 @@ const SettingsPage = ({ isChatMaximized = false }) => {
 
   const saveSettings = async (silent = false) => {
     if (!silent) setSaveStatus('saving');
+    
+    // Always sync storage before API call
     localStorage.setItem('app_settings', JSON.stringify(settings));
+    
     try {
       await apiService.updateSettings(settings);
       if (!silent) {
@@ -305,7 +325,7 @@ const SettingsPage = ({ isChatMaximized = false }) => {
         transition: 'margin-right 0.3s ease',
       }}
     >
-      {/* Save Status Indicator */}
+      {/* Save Status Indicator - Only shows when actively saving, not on load */}
       {saveStatus && (
         <div className="fixed top-4 right-4 z-50">
           <div className={`px-4 py-2 rounded-lg shadow-lg ${
@@ -529,7 +549,7 @@ const SettingsPage = ({ isChatMaximized = false }) => {
                       Clear Application Cache
                     </h4>
                     <p className="text-xs mt-1" style={{ color: 'var(--theme-text-tertiary)' }}>
-                      Remove RAG data, temp uploads, and scanner state
+                      Remove temporary files and cached data
                     </p>
                   </div>
                   <button 
