@@ -24,11 +24,9 @@ class RAGGenerator:
         """
         try:
             stats = file_path.stat()
-            # Key = Filename + Size + ModifiedTime
             key = f"{file_path.name}_{stats.st_size}_{stats.st_mtime}"
             return hashlib.md5(key.encode()).hexdigest()
         except Exception:
-            # Fallback
             return hashlib.md5(file_path.name.encode()).hexdigest()
 
     @staticmethod
@@ -49,59 +47,44 @@ class RAGGenerator:
             path_obj = Path(file_path)
             if not path_obj.exists():
                 return None
-
-            # Ensure RAG directory exists
             RAG_DIR.mkdir(parents=True, exist_ok=True)
-
-            # 1. Calculate the hash for the CURRENT file state
             current_hash = RAGGenerator._generate_hash(path_obj)
             target_rag_filename = f"{path_obj.stem}_{current_hash}.rag.json"
             target_rag_path = RAG_DIR / target_rag_filename
-
-            # 2. Check for ANY existing RAG files for this filename stem
-            # This handles the cleanup of old versions or duplicates
             existing_rags = list(RAG_DIR.glob(f"{path_obj.stem}_*.rag.json"))
-            
+
             rag_already_exists = False
 
             for existing_rag in existing_rags:
-                # If the filename matches exactly, we have the exact same file content/version
                 if existing_rag.name == target_rag_filename:
                     rag_already_exists = True
-                    # Just update the path inside the JSON (in case file moved)
                     try:
-                        with open(existing_rag, 'r', encoding='utf-8') as f:
+                        with open(existing_rag, "r", encoding="utf-8") as f:
                             data = json.load(f)
-                        
-                        # Only write if path actually changed
-                        if data.get('file_info', {}).get('original_path') != str(file_path):
-                            data['file_info']['original_path'] = str(file_path)
-                            data['file_info']['category'] = category
-                            with open(existing_rag, 'w', encoding='utf-8') as f:
+                        if data.get("file_info", {}).get("original_path") != str(
+                            file_path
+                        ):
+                            data["file_info"]["original_path"] = str(file_path)
+                            data["file_info"]["category"] = category
+                            with open(existing_rag, "w", encoding="utf-8") as f:
                                 json.dump(data, f, indent=2, ensure_ascii=False)
-                            print(f"  ♻️ Updated path in existing RAG: {existing_rag.name}")
+                            print(
+                                f"  ♻️ Updated path in existing RAG: {existing_rag.name}"
+                            )
                         else:
                             print(f"  ✅ RAG up to date: {existing_rag.name}")
-                            
+
                     except Exception as e:
                         print(f"  ⚠️ Error updating existing RAG: {e}")
-                        # If corrupt, treat as not existing
                         rag_already_exists = False
                 else:
-                    # This is an old version (hash mismatch) or a duplicate. Delete it.
                     try:
                         os.remove(existing_rag)
                         print(f"  🧹 Pruned stale RAG: {existing_rag.name}")
                     except Exception:
                         pass
-
-            # 3. If we found the exact match, we are done. Return.
             if rag_already_exists:
                 return str(target_rag_path)
-
-            # 4. If we are here, it's a new file or new version. Create fresh RAG.
-            
-            # Chunk the text content
             full_text = extracted_data.get("text", "")
             if extracted_data.get("audio_transcript"):
                 full_text += (
@@ -142,6 +125,7 @@ class RAGGenerator:
         except Exception as e:
             print(f"  ⚠️  Error creating RAG document: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -177,31 +161,32 @@ class RAGGenerator:
                     rag_doc = json.load(f)
 
                 score = 0
-                
-                # Simple keyword scoring
                 filename = rag_doc.get("file_info", {}).get("filename", "").lower()
-                if query_lower in filename: score += 10
+                if query_lower in filename:
+                    score += 10
 
                 summary = rag_doc.get("analysis", {}).get("summary", "").lower()
                 score += sum(word in summary for word in query_words) * 3
 
-                keywords = [k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])]
+                keywords = [
+                    k.lower() for k in rag_doc.get("analysis", {}).get("keywords", [])
+                ]
                 score += sum(word in keywords for word in query_words) * 5
-
-                # Search content chunks
                 for chunk in rag_doc.get("content", {}).get("chunks", []):
                     if any(word in chunk.lower() for word in query_words):
                         score += 1
 
                 if score > 0:
-                    results.append({
-                        "file": rag_doc["file_info"]["filename"],
-                        "path": rag_doc["file_info"]["original_path"],
-                        "summary": rag_doc["analysis"]["summary"],
-                        "keywords": rag_doc["analysis"]["keywords"],
-                        "score": score,
-                        "content_preview": rag_doc["content"]["full_text"][:500],
-                    })
+                    results.append(
+                        {
+                            "file": rag_doc["file_info"]["filename"],
+                            "path": rag_doc["file_info"]["original_path"],
+                            "summary": rag_doc["analysis"]["summary"],
+                            "keywords": rag_doc["analysis"]["keywords"],
+                            "score": score,
+                            "content_preview": rag_doc["content"]["full_text"][:500],
+                        }
+                    )
 
             except Exception:
                 continue
