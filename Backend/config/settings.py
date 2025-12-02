@@ -9,66 +9,38 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Base directories
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
-
-# Organized data storage
 RAG_DATA_DIR = DATA_DIR / "rag_data"
 RAG_DATA_DIR.mkdir(exist_ok=True)
-
 LOGS_DIR = DATA_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
-
 MOVE_LOGS_DIR = LOGS_DIR / "move_reports"
 MOVE_LOGS_DIR.mkdir(exist_ok=True)
-
-# Ports
 FILE_ORGANIZER_PORT = 5001
 CHATBOT_PORT = 5000
-
-# File Organizer Settings
 CONFIG_FILE = DATA_DIR / "file_organizer_config.json"
 SETTINGS_FILE = DATA_DIR / "app_settings.json"
-
-# Default confidence thresholds (can be overridden by user settings)
-# CHANGED: All defaults now 50 instead of 85/80/75/70
 DEFAULT_CONFIDENCE_THRESHOLDS = {
     "text": 0.50,
     "images": 0.50,
     "audio": 0.50,
     "video": 0.50,
 }
-
-# Global confidence threshold (fallback)
-# CHANGED: From 0.3 to 0.50
 CONFIDENCE_THRESHOLD = 0.50
-
-# Processing Settings
-MAX_WORKERS = 4  # Multi-threaded processing
-PROCESSING_BATCH_SIZE = 10  # Files per batch
-
-# Ollama Settings (Local AI)
+MAX_WORKERS = 4
+PROCESSING_BATCH_SIZE = 10
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 PHI3_MODEL = "phi3:mini"  # Text processing
 LLAVA_MODEL = "llava-phi3"  # Image processing
-
-# Whisper Settings (Audio/Video)
 WHISPER_MODEL = "tiny"  # Options: tiny, base, small, medium, large
-
-# RAG Settings
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 MAX_RAG_RESULTS = 5
 ENABLE_RAG_CACHING = True  # Skip re-scanning if RAG exists
-
-# Chatbot Settings
 MAX_CONVERSATION_HISTORY = 3
 ENABLE_RAG = True
-
-# Logging Settings
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
