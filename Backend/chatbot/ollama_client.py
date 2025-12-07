@@ -1,628 +1,317 @@
-"""
-Enhanced Ollama Chatbot with Smart RAG Detection and Confirmation Handling
-Supports folder processing with user confirmation for non-watched folders
-"""
-
 import ollama
-import requests
 import sys
 import re
-import json
-from typing import Dict, Any, Optional
+from typing import Optional, Dict, Tuple
 
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])
 from utils.logger import setup_logger
 from file_organizer import tools
+from config.settings import OLLAMA_HOST, PHI3_MODEL
 
 logger = setup_logger(__name__)
-
-from config.settings import (
-    OLLAMA_HOST,
-    PHI3_MODEL,
-    MAX_CONVERSATION_HISTORY,
-    ENABLE_RAG,
-    FILE_ORGANIZER_PORT,
-)
 
 
 class OllamaChatbot:
     def __init__(self):
         self.client = ollama.Client(host=OLLAMA_HOST)
         self.conversation_history = []
+        self.pending_confirmation = None
         self.is_ready = True
         self.loading = False
-        self.pending_confirmation = None  # Tracks confirmation requests
 
-    def _get_system_instruction(self):
-        """Enhanced System Prompt with process_folder and smart tool selection"""
-        status = tools.get_system_status()
-
-        return f"""You are Clanky, an automated File Organizer assistant.
-
-Current Configuration:
-- Categories: {', '.join(status['categories']) if status['categories'] else 'None'}
-- Watched Folders: {', '.join(status['watched_folders']) if status['watched_folders'] else 'None'}
-
-AVAILABLE TOOLS:
-
-1. create_category(name, path)
-   - Creates a DESTINATION category where files will be organized
-   - Example: {{"tool": "create_category", "args": {{"name": "Work Docs", "path": "Documents/Work"}}}}
-
-2. create_folder(path, folder_name)
-   - Creates a regular folder on the file system
-   - Example: {{"tool": "create_folder", "args": {{"path": "Desktop", "folder_name": "New Project"}}}}
-
-3. add_watched_folder(path)
-   - Adds a SOURCE folder to monitor for automatic file organization
-   - Example: {{"tool": "add_watched_folder", "args": {{"path": "Downloads"}}}}
-
-4. sort_folder(folder_name)
-   - Manually triggers file sorting for a watched folder (watched folders only)
-   - Example: {{"tool": "sort_folder", "args": {{"folder_name": "Downloads"}}}}
-
-5. process_folder(path, confirmed)
-   - Process ALL files in ANY folder (even if not watched)
-   - Use when user says "process files in", "organize", "sort all files"
-   - Example: {{"tool": "process_folder", "args": {{"path": "Desktop/Screenshots", "confirmed": false}}}}
-
-6. search_rag(query, max_results)
-   - Searches PROCESSED FILE CONTENT to answer questions about specific files/documents
-   - Use ONLY when user asks about FILE CONTENT (documents, reports, invoices, etc.)
-   - Example: {{"tool": "search_rag", "args": {{"query": "tax documents", "max_results": 5}}}}
-
-7. get_file_layout(path, depth)
-   - Shows the ACTUAL folder/file structure at a location
-   - Use when user asks "what's in", "show me", "list files/folders", "what folders do I have"
-   - Example: {{"tool": "get_file_layout", "args": {{"path": "Desktop", "depth": 2}}}}
-
-8. list_categories()
-   - Lists all configured categories
-   - Example: {{"tool": "list_categories", "args": {{}}}}
-
-9. list_watched_folders()
-   - Lists all watched folders with their status
-   - Example: {{"tool": "list_watched_folders", "args": {{}}}}
-
-CRITICAL DISTINCTIONS:
-
-**Use get_file_layout() when user asks:**
-- "What folders are on my Desktop?"
-- "Show me what's in my Documents"
-- "List the files in Downloads"
-- "What do I have in Pictures?"
-- "What's on my Desktop?"
-- ANY question about folder/file structure or "what's in" a location
-
-**Use search_rag() when user asks:**
-- "Find my tax returns"
-- "Do I have any invoices?"
-- "Show me documents about contracts"
-- "Find files related to work projects"
-- ANY question about FILE CONTENT or searching for specific documents
-
-**Use process_folder() when user asks:**
-- "Process all files in Desktop"
-- "Organize everything in Downloads"
-- "Sort all files in Screenshots folder"
-- "Clean up my Documents folder"
-- ANY request to process/organize/sort files in a specific location
-
-INSTRUCTIONS:
-- When user asks about folder contents/structure → ALWAYS use get_file_layout()
-- When user asks about finding specific files by content → use search_rag()
-- When user asks to process/organize/sort a folder → use process_folder()
-- Return ONLY JSON for actions: {{"tool": "tool_name", "args": {{"arg1": "value"}}}}
-- Do NOT wrap in markdown code blocks (no ```json)
-- For normal conversation, reply with text (no JSON)
-
-EXAMPLES:
-
-User: "Process all files in my Desktop"
-Response: {{"tool": "process_folder", "args": {{"path": "Desktop", "confirmed": false}}}}
-
-User: "Organize everything in Downloads"
-Response: {{"tool": "process_folder", "args": {{"path": "Downloads", "confirmed": false}}}}
-
-User: "What folders do I have on my Desktop?"
-Response: {{"tool": "get_file_layout", "args": {{"path": "Desktop", "depth": 1}}}}
-
-User: "Find my tax returns"
-Response: {{"tool": "search_rag", "args": {{"query": "tax returns", "max_results": 5}}}}
-"""
-
-    def _detect_query_type(self, message: str) -> str:
+    def _parse_user_intent(self, message: str) -> Tuple[Optional[str], Optional[Dict]]:
         """
-        Detect if user is asking about:
-        - 'layout': Folder structure / what's in a location
-        - 'content': Searching for specific file content
-        - 'process': Process/organize files in a folder
-        - 'action': Wants to perform an action
-        - 'chat': Just conversational
+        Parse user message and extract tool + parameters
+        Returns: (tool_name, args) or (None, None)
         """
-        message_lower = message.lower()
+        msg_lower = message.lower()
 
-        # Process queries - asking to organize/process files
-        process_keywords = [
-            "process",
-            "organize",
-            "sort",
-            "clean up",
-            "process all",
-            "organize all",
-            "sort all",
-            "process files",
-            "organize files",
-            "sort files",
-            "process everything",
-            "organize everything",
-        ]
+        # ORGANIZE/PROCESS FOLDER
+        if any(word in msg_lower for word in ["organize", "process", "sort"]):
+            # Extract full path with pattern matching
+            # Pattern 1: Full Windows path (C:\...\...)
+            path_match = re.search(r"[A-Z]:[\\\/][^\s,;]+", message, re.IGNORECASE)
+            if path_match:
+                path = path_match.group(0).strip()
+                logger.info(f"✓ ORGANIZE: {path}")
+                return ("process_folder", {"path": path, "confirmed": False})
 
-        # Layout queries - asking about folder structure
-        layout_keywords = [
-            "what folders",
-            "what files",
-            "what's in",
-            "what is in",
-            "show me",
-            "list files",
-            "list folders",
-            "what do i have in",
-            "what's on",
-            "what is on",
-            "contents of",
-            "in my desktop",
-            "on my desktop",
-            "folders on",
-            "files on",
-            "folders in",
-            "files in",
-        ]
+            # Pattern 2: Keyword path (organize Downloads, organize Desktop)
+            for keyword in ["downloads", "desktop", "documents", "pictures", "videos"]:
+                if keyword in msg_lower:
+                    path = keyword.capitalize()
+                    logger.info(f"✓ ORGANIZE: {path}")
+                    return ("process_folder", {"path": path, "confirmed": False})
 
-        # Content queries - searching for specific documents
-        content_keywords = [
-            "find",
-            "search",
-            "look for",
-            "do i have any",
-            "where is my",
-            "locate",
-            "documents about",
-            "files about",
-            "invoices",
-            "contracts",
-            "reports",
-            "receipts",
-            "tax",
-            "returns",
-        ]
-
-        # Check for process queries first (highest priority for this feature)
-        if any(keyword in message_lower for keyword in process_keywords):
-            return "process"
-
-        # Check for layout queries
-        if any(keyword in message_lower for keyword in layout_keywords):
-            return "layout"
-
-        # Check for content queries
-        if any(keyword in message_lower for keyword in content_keywords):
-            return "content"
-
-        # Check for action queries
-        action_keywords = ["create", "make", "add", "watch", "monitor"]
-        if any(keyword in message_lower for keyword in action_keywords):
-            return "action"
-
-        return "chat"
-
-    def _inject_context_hint(self, message: str, query_type: str) -> str:
-        """Add a hint to the message to guide the AI"""
-        if query_type == "process":
-            return f"{message}\n\n[SYSTEM HINT: User wants to process/organize files in a folder. Use process_folder tool.]"
-        elif query_type == "layout":
-            return f"{message}\n\n[SYSTEM HINT: User is asking about folder structure. Use get_file_layout tool.]"
-        elif query_type == "content":
-            return f"{message}\n\n[SYSTEM HINT: User is searching for specific file content. Use search_rag tool.]"
-        return message
-
-    def search_files(self, query: str) -> Optional[str]:
-        """Search through RAG data via the file organizer API"""
-        try:
-            response = requests.post(
-                f"http://localhost:{FILE_ORGANIZER_PORT}/api/rag/search",
-                json={"query": query, "max_results": 3},
-                timeout=3,
+        # CREATE FOLDER
+        if (
+            any(word in msg_lower for word in ["create", "make"])
+            and "folder" in msg_lower
+        ):
+            # Extract folder name from "called X" or "named X"
+            name_match = re.search(
+                r'(?:called|named)\s+["\']?([^"\']+?)["\']?(?:\s+on|\s+in|\s|$)',
+                message,
+                re.IGNORECASE,
             )
+            if name_match:
+                folder_name = name_match.group(1).strip()
+                # Determine location
+                location = "Desktop"  # default
+                if "documents" in msg_lower:
+                    location = "Documents"
+                elif "downloads" in msg_lower:
+                    location = "Downloads"
 
-            if response.status_code == 200:
-                results = response.json().get("results", [])
-                if not results:
-                    return None
+                logger.info(f"✓ CREATE FOLDER: {folder_name} in {location}")
+                return ("create_folder", {"path": location, "folder_name": folder_name})
 
-                context = f"Search Results:\n"
-                for res in results:
-                    context += f"- {res['file']}: {res.get('summary', '')[:100]}...\n"
+        # WATCH FOLDER
+        if any(word in msg_lower for word in ["watch", "monitor"]):
+            # Full path
+            path_match = re.search(r"[A-Z]:[\\\/][^\s,;]+", message, re.IGNORECASE)
+            if path_match:
+                path = path_match.group(0).strip()
+                logger.info(f"✓ WATCH: {path}")
+                return ("add_watched_folder", {"path": path})
 
-                return context
-        except:
-            return None
+            # Keyword path
+            for keyword in ["downloads", "desktop", "documents", "pictures"]:
+                if keyword in msg_lower:
+                    path = keyword.capitalize()
+                    logger.info(f"✓ WATCH: {path}")
+                    return ("add_watched_folder", {"path": path})
 
-        return None
+        if (
+            any(word in msg_lower for word in ["create", "make", "add"])
+            and "category" in msg_lower
+        ):
+            name_match = re.search(
+                r'(?:called|named)\s+["\']?([^"\']+?)["\']?(?:\s+in|\s+at|\s|$)',
+                message,
+                re.IGNORECASE,
+            )
+            if name_match:
+                cat_name = name_match.group(1).strip()
+                # Determine destination
+                dest = "Documents"  # default
+                if "pictures" in msg_lower:
+                    dest = "Pictures"
+                elif "desktop" in msg_lower:
+                    dest = "Desktop"
 
-    def execute_tool(self, tool_name: str, args: Dict[str, Any]) -> str:
-        """Execute the specified tool with arguments"""
+                logger.info(f"✓ CREATE CATEGORY: {cat_name} in {dest}")
+                return ("create_category", {"name": cat_name, "path": dest})
+
+        # SHOW/LIST FILES
+        if any(word in msg_lower for word in ["what's", "show", "list", "what"]):
+            if "desktop" in msg_lower:
+                logger.info(f"✓ SHOW: Desktop")
+                return ("get_file_layout", {"path": "Desktop", "depth": 1})
+            elif "documents" in msg_lower:
+                logger.info(f"✓ SHOW: Documents")
+                return ("get_file_layout", {"path": "Documents", "depth": 1})
+            elif "downloads" in msg_lower:
+                logger.info(f"✓ SHOW: Downloads")
+                return ("get_file_layout", {"path": "Downloads", "depth": 1})
+
+        # LIST CATEGORIES
+        if "categories" in msg_lower and any(
+            word in msg_lower for word in ["show", "list", "what"]
+        ):
+            logger.info(f"✓ LIST CATEGORIES")
+            return ("list_categories", {})
+
+        # LIST WATCHED
+        if "watched" in msg_lower and any(
+            word in msg_lower for word in ["show", "list", "what"]
+        ):
+            logger.info(f"✓ LIST WATCHED")
+            return ("list_watched_folders", {})
+
+        # SEARCH FILES (RAG - search through processed file content)
+        if any(
+            word in msg_lower
+            for word in [
+                "find",
+                "search",
+                "do i have",
+                "where is",
+                "locate",
+                "look for",
+            ]
+        ):
+            # Extract search query
+            query = None
+
+            match = re.search(
+                r"(?:find|search|locate|look for)\s+(?:my\s+)?(.+)",
+                message,
+                re.IGNORECASE,
+            )
+            if match:
+                query = match.group(1).strip()
+
+            if not query:
+                match = re.search(
+                    r"do i have\s+(?:any\s+)?(.+)", message, re.IGNORECASE
+                )
+                if match:
+                    query = match.group(1).strip()
+            if not query:
+                match = re.search(
+                    r"where (?:is|are)\s+(?:my\s+)?(.+)", message, re.IGNORECASE
+                )
+                if match:
+                    query = match.group(1).strip()
+
+            if query:
+                query = query.rstrip("?!.,")
+                logger.info(f"✓ SEARCH RAG: {query}")
+                return ("search_rag", {"query": query, "max_results": 5})
+        logger.info("✓ CHAT MODE")
+        return (None, None)
+
+    def _execute_tool(self, tool_name: str, args: Dict) -> str:
+        """Execute a tool and return result"""
         try:
-            logger.info(f"🔧 Tool Exec: {tool_name} {args}")
-
-            if tool_name == "create_category":
-                return tools.create_category(args.get("name"), args.get("path"))
-
-            elif tool_name == "create_folder":
-                return tools.create_folder(args.get("path"), args.get("folder_name"))
-
-            elif tool_name == "add_watched_folder":
-                return tools.add_watched_folder(args.get("path"))
-
-            elif tool_name == "sort_folder":
-                return tools.sort_folder(args.get("folder_name"))
-
-            elif tool_name == "process_folder":
-                return tools.process_folder(
+            logger.info(f"🔧 EXECUTING: {tool_name}")
+            logger.info(f"📋 ARGS: {args}")
+            if tool_name == "process_folder":
+                result = tools.process_folder(
                     args.get("path"), args.get("confirmed", False)
                 )
-
-            elif tool_name == "confirm_process_folder":
-                return tools.confirm_process_folder(
-                    args.get("confirmation_id"), args.get("confirmed", False)
-                )
-
-            elif tool_name == "search_rag":
-                return tools.search_rag_data(
-                    args.get("query", ""), args.get("max_results", 5)
-                )
-
+            elif tool_name == "create_folder":
+                result = tools.create_folder(args.get("path"), args.get("folder_name"))
+            elif tool_name == "add_watched_folder":
+                result = tools.add_watched_folder(args.get("path"))
+            elif tool_name == "create_category":
+                result = tools.create_category(args.get("name"), args.get("path"))
             elif tool_name == "get_file_layout":
-                return tools.get_file_layout(args.get("path"), args.get("depth", 2))
-
+                result = tools.get_file_layout(args.get("path"), args.get("depth", 2))
             elif tool_name == "list_categories":
-                return tools.list_categories()
-
+                result = tools.list_categories()
             elif tool_name == "list_watched_folders":
-                return tools.list_watched_folders()
-
+                result = tools.list_watched_folders()
+            elif tool_name == "search_rag":
+                result = tools.search_rag_data(
+                    args.get("query"), args.get("max_results", 5)
+                )
             else:
-                return f"Error: Unknown tool '{tool_name}'"
-
+                result = f"Error: Unknown tool {tool_name}"
+            logger.info(f"✅ RESULT: {result[:100]}...")
+            return result
         except Exception as e:
-            logger.error(f"Tool execution error: {e}")
-            return f"Tool Error: {str(e)}"
+            logger.error(f"💥 TOOL ERROR: {e}", exc_info=True)
+            return f"Error: {str(e)}"
 
     def generate_response(self, user_message: str) -> str:
+        """Main response generator"""
         try:
-            # Check if user is responding to a confirmation
+            logger.info(f"👤 USER: {user_message}")
             if self.pending_confirmation:
-                return self._handle_confirmation_response(user_message)
+                return self._handle_confirmation(user_message)
+            tool_name, args = self._parse_user_intent(user_message)
+            if tool_name:
+                result = self._execute_tool(tool_name, args)
+                if result.startswith("CONFIRMATION_REQUIRED|"):
+                    return self._handle_confirmation_request(result, user_message)
+                if tool_name == "get_file_layout":
+                    self.conversation_history.append(
+                        {"user": user_message, "assistant": result}
+                    )
+                    return result
+                if result.startswith("Success:"):
+                    response = result.replace("Success: ", "")
+                elif result.startswith("Error:"):
+                    response = result
+                elif result.startswith("Info:"):
+                    response = result.replace("Info: ", "")
+                else:
+                    response = result
 
-            # Detect query type
-            query_type = self._detect_query_type(user_message)
-            logger.info(f"Detected query type: {query_type}")
+                self.conversation_history.append(
+                    {"user": user_message, "assistant": response}
+                )
+                return response
+            return self._chat_response(user_message)
 
-            # Build message context
-            messages = [{"role": "system", "content": self._get_system_instruction()}]
+        except Exception as e:
+            logger.error(f"💥 ERROR: {e}", exc_info=True)
+            return "I'm having trouble with that request. Please check the logs."
 
-            # Add limited conversation history
+    def _chat_response(self, user_message: str) -> str:
+        """Generate conversational response"""
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are Clanky, a helpful file organization assistant. Be friendly and conversational. Keep responses brief.",
+                }
+            ]
             for msg in self.conversation_history[-2:]:
                 messages.append({"role": "user", "content": msg["user"]})
                 messages.append({"role": "assistant", "content": msg["assistant"]})
-
-            # Add context hint to guide AI
-            enhanced_message = self._inject_context_hint(user_message, query_type)
-
-            # ONLY add RAG context for content queries (not layout queries)
-            if ENABLE_RAG and query_type == "content":
-                rag = self.search_files(user_message)
-                if rag:
-                    messages.append({"role": "system", "content": rag})
-
-            # Add current user message
-            messages.append({"role": "user", "content": enhanced_message})
-
-            # Get AI response
+            messages.append({"role": "user", "content": user_message})
             response = self.client.chat(model=PHI3_MODEL, messages=messages)
-            ai_text = response["message"]["content"].strip()
-
-            # Clean up potential markdown wrappers
-            clean_text = re.sub(r"```json\s*", "", ai_text)
-            clean_text = re.sub(r"```", "", clean_text).strip()
-
-            # Try to detect JSON command
-            json_match = re.search(r"\{.*\}", clean_text, re.DOTALL)
-
-            if json_match:
-                try:
-                    command_data = json.loads(json_match.group(0))
-                    tool_name = command_data.get("tool")
-                    args = command_data.get("args", {})
-
-                    if tool_name:
-                        # Execute the tool
-                        result = self.execute_tool(tool_name, args)
-
-                        # Check if this is a confirmation request
-                        if result.startswith("CONFIRMATION_REQUIRED|"):
-                            parts = result.split("|", 2)
-                            confirmation_id = parts[1]
-                            message = parts[2]
-
-                            # Store pending confirmation
-                            self.pending_confirmation = {
-                                "id": confirmation_id,
-                                "original_message": user_message,
-                            }
-
-                            # Extract path and file count from the message
-                            # Message format: "I found X files in:\n{path}\n\n..."
-                            try:
-                                file_count_match = re.search(r"(\d+)\s+files?", message)
-                                path_match = re.search(
-                                    r"in:\s*\n\s*(.+?)\s*\n", message, re.MULTILINE
-                                )
-
-                                file_count = (
-                                    file_count_match.group(1)
-                                    if file_count_match
-                                    else "some"
-                                )
-                                path = (
-                                    path_match.group(1).strip()
-                                    if path_match
-                                    else "that folder"
-                                )
-
-                                # Create clean, natural confirmation message
-                                response_text = f"I'd like to organize:\n{path}\n\nI found {file_count} files in this folder.\n\nReply with 'yes' or 'no'."
-                            except:
-                                # Fallback if parsing fails
-                                response_text = (
-                                    f"{message}\n\nReply with 'yes' or 'no'."
-                                )
-
-                            self.conversation_history.append(
-                                {"user": user_message, "assistant": response_text}
-                            )
-
-                            return response_text
-
-                        # For get_file_layout, return result directly without AI summary
-                        if tool_name == "get_file_layout":
-                            self.conversation_history.append(
-                                {"user": user_message, "assistant": result}
-                            )
-                            return result
-
-                        # For other tools, generate a natural language summary
-                        confirm_msgs = [
-                            {
-                                "role": "system",
-                                "content": "You are a helpful assistant. Provide a brief, friendly confirmation based on the SYSTEM OUTPUT. Be natural and concise. Do NOT mention RAG data or system internals.",
-                            },
-                            {
-                                "role": "user",
-                                "content": f"User Request: {user_message}\n\nSYSTEM OUTPUT: {result}\n\nProvide a natural, one-sentence confirmation.",
-                            },
-                        ]
-
-                        final_resp = self.client.chat(
-                            model=PHI3_MODEL, messages=confirm_msgs
-                        )
-                        final_text = final_resp["message"]["content"]
-
-                        # Save to history
-                        self.conversation_history.append(
-                            {"user": user_message, "assistant": final_text}
-                        )
-
-                        return final_text
-
-                except json.JSONDecodeError:
-                    pass
-
-            # No tool execution needed - just conversational response
-            # Remove any mentions of RAG data from conversational responses
-            ai_text = re.sub(
-                r"based on (?:your )?RAG data[,:]?\s*", "", ai_text, flags=re.IGNORECASE
-            )
-            ai_text = re.sub(
-                r"according to (?:your )?RAG data[,:]?\s*",
-                "",
-                ai_text,
-                flags=re.IGNORECASE,
-            )
-            ai_text = re.sub(
-                r"from (?:your )?RAG data[,:]?\s*", "", ai_text, flags=re.IGNORECASE
-            )
-
-            # CRITICAL: Filter out any leaked JSON commands
-            # Sometimes AI includes JSON in conversational text - we need to catch this
-            if '{"tool"' in ai_text or '"args"' in ai_text:
-                # Try to extract and execute the JSON
-                json_match_retry = re.search(
-                    r'\{[^}]*"tool"[^}]*"args"[^}]*\}', ai_text, re.DOTALL
-                )
-                if json_match_retry:
-                    try:
-                        command_data = json.loads(json_match_retry.group(0))
-                        tool_name = command_data.get("tool")
-                        args = command_data.get("args", {})
-
-                        if tool_name:
-                            # Execute it properly
-                            result = self.execute_tool(tool_name, args)
-
-                            # Check for confirmation
-                            if result.startswith("CONFIRMATION_REQUIRED|"):
-                                parts = result.split("|", 2)
-                                confirmation_id = parts[1]
-                                message = parts[2]
-
-                                self.pending_confirmation = {
-                                    "id": confirmation_id,
-                                    "original_message": user_message,
-                                }
-
-                                # Extract path and file count
-                                try:
-                                    file_count_match = re.search(
-                                        r"(\d+)\s+files?", message
-                                    )
-                                    path_match = re.search(
-                                        r"in:\s*\n\s*(.+?)\s*\n", message, re.MULTILINE
-                                    )
-
-                                    file_count = (
-                                        file_count_match.group(1)
-                                        if file_count_match
-                                        else "some"
-                                    )
-                                    path = (
-                                        path_match.group(1).strip()
-                                        if path_match
-                                        else "that folder"
-                                    )
-
-                                    response_text = f"I'd like to organize:\n{path}\n\nI found {file_count} files in this folder.\n\nReply with 'yes' or 'no'."
-                                except:
-                                    response_text = (
-                                        f"{message}\n\nReply with 'yes' or 'no'."
-                                    )
-
-                                self.conversation_history.append(
-                                    {"user": user_message, "assistant": response_text}
-                                )
-
-                                return response_text
-
-                            # For other tools, generate summary
-                            if tool_name == "get_file_layout":
-                                self.conversation_history.append(
-                                    {"user": user_message, "assistant": result}
-                                )
-                                return result
-
-                            # Generate natural summary for other tools
-                            confirm_msgs = [
-                                {
-                                    "role": "system",
-                                    "content": "Provide a brief, friendly confirmation. Be natural and concise.",
-                                },
-                                {
-                                    "role": "user",
-                                    "content": f"User Request: {user_message}\n\nSYSTEM OUTPUT: {result}\n\nProvide a natural, one-sentence confirmation.",
-                                },
-                            ]
-
-                            final_resp = self.client.chat(
-                                model=PHI3_MODEL, messages=confirm_msgs
-                            )
-                            final_text = final_resp["message"]["content"]
-
-                            self.conversation_history.append(
-                                {"user": user_message, "assistant": final_text}
-                            )
-
-                            return final_text
-                    except:
-                        pass
-
-                # If we can't parse or execute it, just remove the JSON from the text
-                ai_text = re.sub(
-                    r'\{[^}]*"tool"[^}]*"args"[^}]*\}', "", ai_text, flags=re.DOTALL
-                )
-                ai_text = ai_text.strip()
-
-                # If nothing left, give a generic response
-                if not ai_text:
-                    ai_text = "I'm working on that request. Let me process it properly."
-
+            ai_response = response["message"]["content"].strip()
             self.conversation_history.append(
-                {"user": user_message, "assistant": ai_text}
+                {"user": user_message, "assistant": ai_response}
             )
-
-            return ai_text
-
+            return ai_response
         except Exception as e:
-            logger.error(f"Chat Error: {e}")
-            return "I'm having trouble processing that right now. Please check the backend logs for details."
+            logger.error(f"Chat error: {e}")
+            return "I'm here to help! What would you like to do?"
 
-    def _handle_confirmation_response(self, user_message: str) -> str:
-        """Handle user's response to a confirmation request"""
+    def _handle_confirmation_request(self, result: str, user_message: str) -> str:
+        """Handle confirmation request from process_folder"""
+        parts = result.split("|", 2)
+        confirmation_id = parts[1]
+        message = parts[2]
+        self.pending_confirmation = {
+            "id": confirmation_id,
+            "original_message": user_message,
+        }
         try:
-            message_lower = user_message.lower().strip()
+            file_count_match = re.search(r"(\d+)\s+files?", message)
+            path_match = re.search(r"in:\s*\n\s*(.+?)\s*\n", message, re.MULTILINE)
 
-            # Check for affirmative responses
-            affirmative = [
-                "yes",
-                "y",
-                "yeah",
-                "yep",
-                "sure",
-                "ok",
-                "okay",
-                "proceed",
-                "go ahead",
-                "do it",
-                "confirm",
-            ]
-            negative = [
-                "no",
-                "n",
-                "nope",
-                "cancel",
-                "stop",
-                "don't",
-                "nevermind",
-                "never mind",
-            ]
+            file_count = file_count_match.group(1) if file_count_match else "some"
+            path = path_match.group(1).strip() if path_match else "that folder"
 
-            confirmed = None
-            if any(
-                word == message_lower or word in message_lower for word in affirmative
-            ):
-                confirmed = True
-            elif any(
-                word == message_lower or word in message_lower for word in negative
-            ):
-                confirmed = False
-            else:
-                # Unclear response
-                return "I didn't understand that. Please reply 'yes' to proceed or 'no' to cancel."
+            response = f"I'd like to organize:\n{path}\n\nI found {file_count} files.\n\nReply 'yes' or 'no'."
+        except:
+            response = f"{message}\n\nReply 'yes' or 'no'."
+        self.conversation_history.append({"user": user_message, "assistant": response})
+        return response
 
-            # Execute confirmation
-            confirmation_id = self.pending_confirmation["id"]
-            self.pending_confirmation = None  # Clear pending state
+    def _handle_confirmation(self, user_message: str) -> str:
+        """Handle yes/no confirmation"""
+        msg_lower = user_message.lower().strip()
+        if any(
+            word in msg_lower
+            for word in ["yes", "y", "yeah", "yep", "sure", "ok", "okay"]
+        ):
+            confirmed = True
+        elif any(word in msg_lower for word in ["no", "n", "nope", "cancel", "stop"]):
+            confirmed = False
+        else:
+            return "Please reply 'yes' or 'no'."
+        confirmation_id = self.pending_confirmation["id"]
+        self.pending_confirmation = None
 
-            result = tools.confirm_process_folder(confirmation_id, confirmed)
+        result = tools.confirm_process_folder(confirmation_id, confirmed)
 
-            # Generate friendly response
-            if confirmed:
-                response_text = "Great! " + result
-            else:
-                response_text = result
+        if confirmed:
+            response = "Great! " + result.replace("Success: ", "")
+        else:
+            response = result.replace("Cancelled: ", "")
 
-            self.conversation_history.append(
-                {"user": user_message, "assistant": response_text}
-            )
-
-            return response_text
-
-        except Exception as e:
-            logger.error(f"Confirmation error: {e}")
-            self.pending_confirmation = None
-            return "Error processing confirmation. Please try your request again."
+        self.conversation_history.append({"user": user_message, "assistant": response})
+        return response
 
     def clear_history(self):
         """Clear conversation history"""
         self.conversation_history = []
         self.pending_confirmation = None
-        logger.info("Conversation history cleared")
+        logger.info("🗑️ History cleared")
