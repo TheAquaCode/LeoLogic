@@ -1,7 +1,6 @@
 """
-Enhanced AI Tools - Extended file organization functionality for the Chatbot
-Includes: Category creation, folder creation, watched folder management,
-RAG queries, system file layout queries, and FOLDER PROCESSING
+Enhanced AI Tools - PRODUCTION VERSION with comprehensive logging
+All functions include detailed error handling and logging
 """
 
 import threading
@@ -11,7 +10,6 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# These imports work in your actual backend
 from .state import state
 from .file_watcher import start_watching
 from .file_processor import process_file
@@ -115,8 +113,11 @@ def _resolve_path(path_str: str, allow_creation=False) -> str:
 def create_category(name: str, path: str):
     """Create a new organization category"""
     try:
+        logger.info(f"create_category called - name: '{name}', path: '{path}'")
+
         if not name:
-            return "Error: Name is required."
+            logger.warning("create_category: No name provided")
+            return "Error: Category name is required."
 
         # Resolve path, allow creation because categories often point to new places
         final_path = (
@@ -124,17 +125,22 @@ def create_category(name: str, path: str):
             if path
             else _resolve_path(name, allow_creation=True)
         )
+        logger.info(f"Resolved category path: {final_path}")
+
         path_obj = Path(final_path)
 
         # Auto-create directory
         if not path_obj.exists():
             try:
                 path_obj.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created category directory: {path_obj}")
             except Exception as e:
+                logger.error(f"Failed to create category directory: {e}")
                 return f"Error: Could not create folder {final_path}: {e}"
 
         # Check duplicates
         if any(c["name"].lower() == name.lower() for c in state.categories):
+            logger.warning(f"Category '{name}' already exists")
             return f"Error: Category '{name}' already exists."
 
         new_category = {
@@ -144,12 +150,24 @@ def create_category(name: str, path: str):
             "color": "bg-blue-500",
             "rules": 0,
         }
-        state.categories.append(new_category)
-        state.save_to_disk()
 
-        return f"Success: Created category '{name}' -> {path_obj}"
+        state.categories.append(new_category)
+        logger.info(
+            f"Added category to state. Total categories: {len(state.categories)}"
+        )
+
+        try:
+            state.save_to_disk()
+            logger.info("State saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save state: {e}")
+            state.categories.remove(new_category)
+            return f"Error: Could not save configuration: {str(e)}"
+
+        return f"Success: Created category '{name}' at {path_obj}"
 
     except Exception as e:
+        logger.error(f"Error in create_category: {e}", exc_info=True)
         return f"Error creating category: {str(e)}"
 
 
@@ -159,7 +177,12 @@ def create_folder(path: str, folder_name: str = None):
     This is for general folder creation requests.
     """
     try:
+        logger.info(
+            f"create_folder called - path: '{path}', folder_name: '{folder_name}'"
+        )
+
         if not path:
+            logger.warning("create_folder: No path provided")
             return "Error: Path is required."
 
         # If folder_name is provided, create it inside the path
@@ -167,6 +190,7 @@ def create_folder(path: str, folder_name: str = None):
             # Resolve the parent path
             parent_path = _resolve_path(path, allow_creation=True)
             if not parent_path:
+                logger.error(f"Could not resolve parent path: {path}")
                 return f"Error: Could not resolve path '{path}'."
 
             full_path = Path(parent_path) / folder_name
@@ -174,36 +198,56 @@ def create_folder(path: str, folder_name: str = None):
             # Just create the path itself
             full_path = Path(_resolve_path(path, allow_creation=True))
 
+        logger.info(f"Target folder path: {full_path}")
+
         # Create the folder
         if full_path.exists():
+            logger.info(f"Folder already exists: {full_path}")
             return f"Info: Folder already exists at {full_path}"
 
-        full_path.mkdir(parents=True, exist_ok=True)
+        try:
+            full_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Successfully created folder: {full_path}")
+        except Exception as e:
+            logger.error(f"Failed to create folder: {e}")
+            return f"Error: Could not create folder: {str(e)}"
+
         return f"Success: Created folder at {full_path}"
 
     except Exception as e:
+        logger.error(f"Error in create_folder: {e}", exc_info=True)
         return f"Error creating folder: {str(e)}"
 
 
 def add_watched_folder(path: str):
     """Start watching a folder for automatic file organization"""
     try:
+        logger.info(f"add_watched_folder called with path: {path}")
+
         if not path:
             return "Error: Path is required."
 
         # Do NOT allow creation for watched folders (you watch existing things)
         resolved_path = _resolve_path(path, allow_creation=False)
+        logger.info(f"Resolved path: {resolved_path}")
 
         if not resolved_path:
             return f"Error: Could not find folder '{path}'. I can only watch folders that already exist."
 
         path_obj = Path(resolved_path)
 
+        if not path_obj.exists():
+            return f"Error: Path does not exist: {path_obj}"
+
+        if not path_obj.is_dir():
+            return f"Error: Path is not a directory: {path_obj}"
+
         # Check duplicates
         norm_new = os.path.normpath(str(path_obj)).lower()
         for f in state.watched_folders:
             norm_existing = os.path.normpath(f["path"]).lower()
             if norm_existing == norm_new:
+                logger.info(f"Folder already watched: {path_obj.name}")
                 return f"Info: Folder '{path_obj.name}' is already being watched."
 
         new_folder = {
@@ -216,19 +260,50 @@ def add_watched_folder(path: str):
             "last_activity_timestamp": 0,
         }
 
-        state.watched_folders.append(new_folder)
-        state.save_to_disk()
-        start_watching(new_folder["id"], new_folder["path"])
+        logger.info(f"Created new folder entry: {new_folder}")
 
-        return f"Success: Now watching '{path_obj.name}' ({str(path_obj)})"
+        # Add to state
+        state.watched_folders.append(new_folder)
+        logger.info(
+            f"Added to state. Total watched folders: {len(state.watched_folders)}"
+        )
+
+        # Save to disk
+        try:
+            state.save_to_disk()
+            logger.info("State saved to disk successfully")
+        except Exception as e:
+            logger.error(f"Failed to save state to disk: {e}")
+            return f"Error: Could not save configuration: {str(e)}"
+
+        # Start watching
+        try:
+            start_watching(new_folder["id"], new_folder["path"])
+            logger.info(f"Started watching folder ID {new_folder['id']}")
+        except Exception as e:
+            logger.error(f"Failed to start watching: {e}")
+            # Remove from state if watching failed
+            state.watched_folders.remove(new_folder)
+            state.save_to_disk()
+            return f"Error: Could not start file watcher: {str(e)}"
+
+        return f"Success: Now watching '{path_obj.name}' at {str(path_obj)}"
 
     except Exception as e:
+        logger.error(f"Error in add_watched_folder: {e}", exc_info=True)
         return f"Error adding folder: {str(e)}"
 
 
 def sort_folder(folder_name: str):
     """Trigger manual processing of a watched folder"""
     try:
+        logger.info(f"sort_folder called with folder_name: '{folder_name}'")
+
+        # Check if categories exist
+        if not state.categories or len(state.categories) == 0:
+            logger.warning("No categories configured - cannot organize files")
+            return "Error: You need to create at least one category first. Categories are destination folders where your files will be organized. Try: 'Make a category called Work in Documents'"
+
         target = None
 
         # Try finding by name
@@ -238,15 +313,20 @@ def sort_folder(folder_name: str):
                 break
 
         if not target:
+            logger.warning(f"Folder '{folder_name}' not in watched list")
             return f"Error: Folder '{folder_name}' is not in the watched list."
+
+        logger.info(f"Found watched folder: {target['name']}")
 
         folder_id = target["id"]
         folder_path = Path(target["path"])
 
         if not folder_path.exists():
+            logger.error(f"Folder path does not exist: {folder_path}")
             return "Error: Folder path not found on disk."
 
         files = [str(f) for f in folder_path.iterdir() if f.is_file()]
+        logger.info(f"Found {len(files)} files to process")
 
         if not files:
             return f"Folder '{target['name']}' is empty."
@@ -259,6 +339,7 @@ def sort_folder(folder_name: str):
         }
 
         def _process():
+            logger.info(f"Starting processing thread for {len(files)} files")
             for file_path in files:
                 try:
                     res = process_file(file_path, folder_id)
@@ -266,15 +347,20 @@ def sort_folder(folder_name: str):
                         state.processing_progress[folder_id]["completed"] += 1
                     else:
                         state.processing_progress[folder_id]["failed"] += 1
-                except:
+                except Exception as e:
+                    logger.error(f"Error processing {file_path}: {e}")
                     state.processing_progress[folder_id]["failed"] += 1
             state.save_to_disk()
+            logger.info(
+                f"Processing complete. Completed: {state.processing_progress[folder_id]['completed']}, Failed: {state.processing_progress[folder_id]['failed']}"
+            )
 
         threading.Thread(target=_process, daemon=True).start()
 
-        return f"Started sorting {len(files)} files in '{target['name']}'."
+        return f"Success: Started processing {len(files)} files in '{target['name']}'. Files will be organized into your categories: {', '.join([c['name'] for c in state.categories])}."
 
     except Exception as e:
+        logger.error(f"Error in sort_folder: {e}", exc_info=True)
         return f"Error: {str(e)}"
 
 
@@ -282,20 +368,21 @@ def process_folder(path: str, confirmed: bool = False):
     """
     Process all files in a folder (even if not watched).
     For non-watched folders, requires confirmation.
-
-    Args:
-        path: Path to the folder to process
-        confirmed: Whether user has confirmed processing (for non-watched folders)
-
-    Returns:
-        Status message or confirmation request
     """
     try:
+        logger.info(f"process_folder called - path: '{path}', confirmed: {confirmed}")
+
+        # Check if categories exist
+        if not state.categories or len(state.categories) == 0:
+            logger.warning("No categories configured - cannot organize files")
+            return "Error: You need to create at least one category first. Categories are destination folders where your files will be organized. Try: 'Make a category called Work in Documents'"
+
         if not path:
             return "Error: Path is required."
 
         # Resolve the path
         resolved_path = _resolve_path(path, allow_creation=False)
+        logger.info(f"Resolved path: {resolved_path}")
 
         if not resolved_path:
             return f"Error: Could not find folder '{path}'."
@@ -320,15 +407,19 @@ def process_folder(path: str, confirmed: bool = False):
                 watched_folder_id = f["id"]
                 break
 
+        logger.info(f"Is watched folder: {is_watched}")
+
         # Count files
         files = [str(f) for f in folder_path.iterdir() if f.is_file()]
         file_count = len(files)
+        logger.info(f"Found {file_count} files")
 
         if file_count == 0:
             return f"Folder '{folder_path.name}' is empty - no files to process."
 
         # If it's a watched folder, process immediately
         if is_watched:
+            logger.info("Processing watched folder immediately")
             return _start_processing(
                 folder_path, watched_folder_id, files, is_watched=True
             )
@@ -343,33 +434,37 @@ def process_folder(path: str, confirmed: bool = False):
                 "file_count": file_count,
             }
 
-            return f"CONFIRMATION_REQUIRED|{confirmation_id}|I found {file_count} files in:\n{folder_path}\n\nThis folder is not currently being watched. Do you want me to process all {file_count} files?"
+            logger.info(f"Confirmation required. ID: {confirmation_id}")
+
+            category_list = ", ".join([c["name"] for c in state.categories])
+            return f"CONFIRMATION_REQUIRED|{confirmation_id}|I found {file_count} files in:\n{folder_path}\n\nThis folder is not currently being watched. Files will be organized into your categories: {category_list}\n\nDo you want me to process all {file_count} files?"
 
         # User has confirmed, process the folder
+        logger.info("Processing non-watched folder with confirmation")
         return _start_processing(folder_path, None, files, is_watched=False)
 
     except Exception as e:
+        logger.error(f"Error in process_folder: {e}", exc_info=True)
         return f"Error processing folder: {str(e)}"
 
 
 def confirm_process_folder(confirmation_id: str, confirmed: bool):
     """
     Confirm or cancel a pending folder processing request.
-
-    Args:
-        confirmation_id: ID of the pending confirmation
-        confirmed: True to proceed, False to cancel
-
-    Returns:
-        Result message
     """
     try:
+        logger.info(
+            f"confirm_process_folder called - ID: {confirmation_id}, confirmed: {confirmed}"
+        )
+
         if confirmation_id not in pending_confirmations:
+            logger.warning(f"Confirmation ID not found: {confirmation_id}")
             return "Error: No pending confirmation found. The request may have expired."
 
         if not confirmed:
             # User cancelled
             del pending_confirmations[confirmation_id]
+            logger.info("User cancelled processing")
             return "Cancelled: Folder processing cancelled."
 
         # User confirmed, proceed with processing
@@ -377,12 +472,15 @@ def confirm_process_folder(confirmation_id: str, confirmed: bool):
         folder_path = Path(pending["path"])
         files = pending["files"]
 
+        logger.info(f"User confirmed. Processing {len(files)} files from {folder_path}")
+
         # Clean up confirmation
         del pending_confirmations[confirmation_id]
 
         return _start_processing(folder_path, None, files, is_watched=False)
 
     except Exception as e:
+        logger.error(f"Error in confirm_process_folder: {e}", exc_info=True)
         return f"Error confirming: {str(e)}"
 
 
@@ -391,17 +489,16 @@ def _start_processing(
 ):
     """
     Internal function to start processing files.
-
-    Args:
-        folder_path: Path object of the folder
-        folder_id: ID if it's a watched folder, None otherwise
-        files: List of file paths to process
-        is_watched: Whether this is a watched folder
     """
     try:
+        logger.info(
+            f"_start_processing - folder: {folder_path}, is_watched: {is_watched}, files: {len(files)}"
+        )
+
         # If not watched, create a temporary ID
         if folder_id is None:
             folder_id = f"temp_{hash(str(folder_path))}"
+            logger.info(f"Created temp folder ID: {folder_id}")
 
         file_count = len(files)
 
@@ -414,6 +511,7 @@ def _start_processing(
         }
 
         def _process():
+            logger.info(f"Background processing started for {file_count} files")
             for file_path in files:
                 try:
                     res = process_file(file_path, folder_id)
@@ -426,14 +524,18 @@ def _start_processing(
                     state.processing_progress[folder_id]["failed"] += 1
 
             state.save_to_disk()
+            logger.info(
+                f"Background processing complete. Completed: {state.processing_progress[folder_id]['completed']}, Failed: {state.processing_progress[folder_id]['failed']}"
+            )
 
         # Start processing in background thread
         threading.Thread(target=_process, daemon=True).start()
 
         folder_type = "watched folder" if is_watched else "folder"
-        return f"Success: Started processing {file_count} files in {folder_type} '{folder_path.name}'. You can check progress in the dashboard."
+        return f"Success: Started processing {file_count} files in {folder_type} '{folder_path.name}'."
 
     except Exception as e:
+        logger.error(f"Error in _start_processing: {e}", exc_info=True)
         return f"Error starting processing: {str(e)}"
 
 
@@ -443,17 +545,24 @@ def search_rag_data(query: str, max_results: int = 5) -> str:
     Returns formatted context from RAG files.
     """
     try:
-        # This would use your actual RAG_DATA_DIR from config.settings
+        logger.info(
+            f"search_rag_data called - query: '{query}', max_results: {max_results}"
+        )
+
         rag_dir = Path(RAG_DATA_DIR)
 
         if not rag_dir.exists():
+            logger.warning("RAG directory does not exist")
             return "No RAG data available. Process some files first."
 
         results = []
         query_lower = query.lower()
 
         # Search through all RAG files
-        for rag_file in rag_dir.glob("*.rag.json"):
+        rag_files = list(rag_dir.glob("*.rag.json"))
+        logger.info(f"Searching through {len(rag_files)} RAG files")
+
+        for rag_file in rag_files:
             try:
                 with open(rag_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -463,7 +572,7 @@ def search_rag_data(query: str, max_results: int = 5) -> str:
                 content = data.get("content", "").lower()
                 file_name = data.get("original_file", rag_file.stem)
 
-                # Simple keyword matching (you could enhance with embeddings)
+                # Simple keyword matching
                 if any(
                     word in summary or word in content for word in query_lower.split()
                 ):
@@ -480,11 +589,14 @@ def search_rag_data(query: str, max_results: int = 5) -> str:
                     )
 
             except Exception as e:
+                logger.error(f"Error reading RAG file {rag_file}: {e}")
                 continue
 
         # Sort by relevance and limit
         results.sort(key=lambda x: x["relevance"], reverse=True)
         results = results[:max_results]
+
+        logger.info(f"Found {len(results)} relevant results")
 
         if not results:
             return f"No files found matching '{query}'."
@@ -497,6 +609,7 @@ def search_rag_data(query: str, max_results: int = 5) -> str:
         return response
 
     except Exception as e:
+        logger.error(f"Error in search_rag_data: {e}", exc_info=True)
         return f"Error searching RAG data: {str(e)}"
 
 
@@ -506,13 +619,18 @@ def get_file_layout(path: str = None, depth: int = 2) -> str:
     Returns a tree-like structure of folders and files.
     """
     try:
+        logger.info(f"get_file_layout called - path: '{path}', depth: {depth}")
+
         if path:
             resolved_path = _resolve_path(path, allow_creation=False)
             if not resolved_path:
+                logger.error(f"Could not resolve path: {path}")
                 return f"Error: Could not find path '{path}'."
             target_path = Path(resolved_path)
         else:
             target_path = Path.home()
+
+        logger.info(f"Target path: {target_path}")
 
         if not target_path.exists():
             return f"Error: Path does not exist: {target_path}"
@@ -566,9 +684,13 @@ def get_file_layout(path: str = None, depth: int = 2) -> str:
         tree_lines = [str(target_path) + "/"]
         tree_lines.extend(build_tree(target_path))
 
-        return "\n".join(tree_lines)
+        result = "\n".join(tree_lines)
+        logger.info(f"Generated file layout with {len(tree_lines)} lines")
+
+        return result
 
     except Exception as e:
+        logger.error(f"Error in get_file_layout: {e}", exc_info=True)
         return f"Error getting file layout: {str(e)}"
 
 
@@ -583,40 +705,77 @@ def _format_size(size_bytes: int) -> str:
 
 def list_categories() -> str:
     """List all current categories"""
-    if not state.categories:
-        return "No categories configured yet."
+    try:
+        logger.info("list_categories called")
 
-    result = "Current categories:\n"
-    for cat in state.categories:
-        result += f"  • {cat['name']} -> {cat['path']}\n"
+        if not state.categories:
+            logger.info("No categories configured")
+            return "No categories configured yet."
 
-    return result
+        result = "Current categories:\n"
+        for cat in state.categories:
+            result += f"  • {cat['name']} → {cat['path']}\n"
+
+        logger.info(f"Listed {len(state.categories)} categories")
+        return result
+
+    except Exception as e:
+        logger.error(f"Error in list_categories: {e}", exc_info=True)
+        return f"Error listing categories: {str(e)}"
 
 
 def list_watched_folders() -> str:
     """List all watched folders"""
-    if not state.watched_folders:
-        return "No folders being watched yet."
+    try:
+        logger.info("list_watched_folders called")
 
-    result = "Watched folders:\n"
-    for folder in state.watched_folders:
-        status = folder.get("status", "Unknown")
-        file_count = folder.get("fileCount", 0)
-        result += f"  • {folder['name']} ({status}) - {file_count} files\n    Path: {folder['path']}\n"
+        if not state.watched_folders:
+            logger.info("No watched folders configured")
+            return "No folders being watched yet."
 
-    return result
+        result = "Watched folders:\n"
+        for folder in state.watched_folders:
+            status = folder.get("status", "Unknown")
+            file_count = folder.get("fileCount", 0)
+            result += f"  • {folder['name']} ({status}) - {file_count} files\n    Path: {folder['path']}\n"
+
+        logger.info(f"Listed {len(state.watched_folders)} watched folders")
+        return result
+
+    except Exception as e:
+        logger.error(f"Error in list_watched_folders: {e}", exc_info=True)
+        return f"Error listing watched folders: {str(e)}"
 
 
 def get_system_status():
     """Return comprehensive system status"""
-    return {
-        "watched_folders": [f["name"] for f in state.watched_folders],
-        "watched_folder_details": state.watched_folders,
-        "categories": [c["name"] for c in state.categories],
-        "category_details": state.categories,
-        "total_watched": len(state.watched_folders),
-        "total_categories": len(state.categories),
-    }
+    try:
+        logger.info("get_system_status called")
+
+        status = {
+            "watched_folders": [f["name"] for f in state.watched_folders],
+            "watched_folder_details": state.watched_folders,
+            "categories": [c["name"] for c in state.categories],
+            "category_details": state.categories,
+            "total_watched": len(state.watched_folders),
+            "total_categories": len(state.categories),
+        }
+
+        logger.info(
+            f"System status: {status['total_watched']} watched folders, {status['total_categories']} categories"
+        )
+        return status
+
+    except Exception as e:
+        logger.error(f"Error in get_system_status: {e}", exc_info=True)
+        return {
+            "watched_folders": [],
+            "watched_folder_details": [],
+            "categories": [],
+            "category_details": [],
+            "total_watched": 0,
+            "total_categories": 0,
+        }
 
 
 # Tool registry for easy lookup
